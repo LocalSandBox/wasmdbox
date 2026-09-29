@@ -31,7 +31,7 @@ switch (process.argv[2]) {
   case 'boundaries': {
     for (const path of [
       process.env.OUTSIDE_PATH, '/mounted/../outside/secret.txt',
-      '/mounted/file-link', '/mounted/dir-link/secret.txt', '/mounted/hard-link',
+      '/mounted/dir-link/secret.txt', '/mounted/hard-link',
     ]) {
       assert.throws(() => fs.readFileSync(path), 'read ' + path);
       assert.throws(() => fs.writeFileSync(path, 'bad'), 'write ' + path);
@@ -41,6 +41,20 @@ switch (process.argv[2]) {
     assert.throws(() => fs.readFileSync('/mounted/new-link'));
     break;
   }
+  case 'file-link':
+    assert.throws(() => fs.readFileSync('/mounted/file-link'));
+    assert.throws(() => fs.writeFileSync('/mounted/file-link', 'bad'));
+    break;
+  case 'unicode':
+    fs.writeFileSync('/mounted/中文 文件.txt', 'unicode content');
+    assert.equal(fs.readFileSync('/mounted/中文 文件.txt', 'utf8'), 'unicode content');
+    break;
+  case 'windows-paths':
+    for (const name of ['NUL', 'CON.txt', 'COM1', 'LPT1.txt', 'hello.txt:private', 'hello.txt::$DATA', 'hello.txt.', 'hello.txt ', 'C:secret']) {
+      assert.throws(() => fs.readFileSync('/mounted/' + name), name);
+      assert.throws(() => fs.writeFileSync('/mounted/' + name, 'bad'), name);
+    }
+    break;
   case 'read':
     console.log(fs.readFileSync('/mounted/hello.txt', 'utf8'));
     break;

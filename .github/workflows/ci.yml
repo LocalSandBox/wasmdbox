@@ -93,9 +93,9 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run build
       - run: npm run typecheck
-      - name: Test packages, networking, secrets and release validation
-        run: node --test --test-concurrency=1 tests/prepare.test.mjs tests/proxy.test.mjs tests/proxy-sdk.test.mjs tests/secrets.test.mjs tests/release.test.mjs
-      - name: Run all numbered examples
+      - name: Test runtime, host mounts, networking and release validation
+        run: node --test --test-concurrency=1 tests/*.test.mjs
+      - name: Run default standalone examples
         run: npm run demo
       - name: Run preparation, extra-package, installation and public HTTPS examples
         run: |

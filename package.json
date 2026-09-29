@@ -1,6 +1,6 @@
 {
   "name": "wasmdbox",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "description": "Managed Wasmer sandboxes for Node.js with explicit files, host mounts, and scoped network secrets",
   "repository": {
@@ -41,10 +41,10 @@
     "demo:cases": "node examples/run-all.js",
     "demo:install": "node examples/package-install/main.js",
     "typecheck": "tsc --noEmit",
-    "test:mount": "node --test tests/host-filesystem.test.mjs tests/host-mount.test.mjs",
+    "test:mount": "node --test --test-concurrency=1 tests/host-filesystem.test.mjs tests/windows-host-filesystem.test.mjs tests/host-mount.test.mjs",
     "test:prepare": "node --test tests/prepare.test.mjs",
     "test:proxy": "node --test tests/proxy.test.mjs tests/proxy-sdk.test.mjs",
-    "test:proxy:online": "node examples/11-api-authorization/online.js",
+    "test:proxy:online": "node examples/api-authorization/online.js",
     "test:ablation": "node scripts/ablation.mjs",
     "test:package": "node scripts/verify-package.mjs",
     "test": "npm run build && node --test tests/*.test.mjs"

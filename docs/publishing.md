@@ -7,16 +7,16 @@ The workflows follow the separation used by [local-sandbox](https://github.com/L
 [CI](https://github.com/LocalSandBox/wasmdbox/blob/main/.github/workflows/ci.yml) runs for pull requests to `main`, pushes to `main`, manual runs, and release validation. Both Ubuntu 24.04 and macOS 14 use the Node version in `.nvmrc` and run:
 
 - A frozen dependency install, TypeScript build, and the complete test suite.
-- Type checking and all numbered standalone examples.
+- Type checking and all default standalone examples.
 - A tarball install outside the checkout with lifecycle scripts disabled and the installed package made read-only. The consumer checks JavaScript, TypeScript, commands, mounts, HTTPS secrets, runtime preparation, and extra packages.
 
 Linux also runs the SDK patch and parent deadline ablations. The tests use local HTTPS fixtures and need no API credentials, but Wasmer package resolution and downloads require internet access.
 
 CI runs test files sequentially so separate integration suites do not compete with each other's Wasmer worker pools on hosted runners. Tests that exercise multiple live sandboxes still do so, and command and cleanup deadlines are unchanged.
 
-A separate `Windows runtime` job builds and type-checks on `windows-latest`, exercises package preparation and extra packages, TCP/HTTPS policy and secret substitution, and executes all 24 numbered examples. Host-mount cases 23 and 24 are reported as `UNSUPPORTED` only for the adapter's explicit platform rejection, not counted as passes. Any other failure fails CI. The job also installs and runs the tarball outside the checkout. The Windows consumer verifies that mounts reject explicitly, then uses guest virtual files for its runtime checks; its report records `hostMountWrite: false`. Windows failures block releases just like the Linux and macOS jobs.
+A separate `Windows runtime` job builds and type-checks on `windows-latest`, runs the complete test suite including local host mounts and native Windows path cases, and executes all 24 default examples. Mount examples must pass. The job also installs and runs the tarball outside the checkout, verifies a guest write persisted through a host mount, and records `hostMountWrite: true` only after successful verification. Windows failures block releases just like the Linux and macOS jobs.
 
-All three platforms also run the preparation, extra-package, package-installation, and public HTTPS examples. These require access to the npm and Wasmer registries and `https://example.com/`.
+All three platforms also run preparation, extra-package, public HTTPS, and package installation into a persistent host mount. These checks require access to the npm and Wasmer registries and `https://example.com/`.
 
 Each successful Linux run uploads an `npm-package` artifact containing `npm/wasmdbox-VERSION.tgz` and `package-verification.json`. The archive is the same one installed by the consumer test. All three platforms upload their validation reports. Artifacts are retained for 14 days.
 

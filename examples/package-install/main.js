@@ -1,29 +1,40 @@
 import { Sandbox } from 'wasmdbox';
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// The host acquires a pinned archive; the guest installs offline with networking disabled.
-const archive = await acquireArchive();
-const sandbox = await Sandbox.create({
-  cacheDir: fileURLToPath(new URL('../../.wasmer/', import.meta.url)),
+// Keep this directory after closing the sandboxes so the installation persists.
+const hostDirectory = fileURLToPath(new URL('../../.artifacts/package-install/', import.meta.url));
+const cacheDir = fileURLToPath(new URL('../../.wasmer/', import.meta.url));
+await mkdir(hostDirectory, { recursive: true });
+try {
+  await writeFile(join(hostDirectory, 'package.json'), await readFile(new URL('./fixtures/package.json', import.meta.url)), { flag: 'wx' });
+} catch (error) {
+  if (error.code !== 'EEXIST') throw error;
+}
+console.log('Persistent host directory: ' + hostDirectory);
+
+const installer = await Sandbox.create({
+  cacheDir,
+  network: { allow: ['registry.npmjs.org'] },
+  mounts: [{ hostPath: hostDirectory, guestPath: '/mounted', readOnly: false }],
   files: {
-    '/workspace/package.json': await readFile(new URL('./fixtures/package.json', import.meta.url)),
-    '/workspace/vendor/is-number-7.0.0.tgz': archive,
     '/workspace/before.cjs': await readFile(new URL('./before.cjs', import.meta.url)),
-    '/workspace/guest.cjs': await readFile(new URL('./guest.cjs', import.meta.url)),
   },
 });
-
 try {
-  await sandbox.exec(['node', '/workspace/before.cjs'], { check: true });
-  const install = await sandbox.exec([
-    'pnpm', 'add', './vendor/is-number-7.0.0.tgz', '--offline', '--ignore-scripts', '--reporter=append-only',
+  const before = await installer.exec(['node', '/workspace/before.cjs'], { check: true, timeoutMs: 30_000 });
+  process.stdout.write(before.stdout);
+  const install = await installer.exec([
+    'pnpm', '--dir=/mounted', 'add', 'is-number@7.0.0', '--save-exact', '--ignore-scripts', '--reporter=append-only',
+    '--registry=https://registry.npmjs.org', '--fetch-retries=0', '--fetch-timeout=30000',
   ], {
+    // Keep WASI startup in /workspace; pnpm targets the host mount via --dir.
     cwd: '/workspace', timeoutMs: 120_000, check: true,
     env: {
       HOME: '/tmp', PATH: '/bin:/usr/bin', CI: 'true',
+      // Use ordinary files: the mount adapter rejects host symlinks and hardlinks.
       npm_config_node_linker: 'hoisted',
       npm_config_npm_path: '/bin/edge-npm-internal',
       npm_config_package_import_method: 'copy',
@@ -33,45 +44,34 @@ try {
   });
   process.stdout.write(install.stdout);
   process.stderr.write(install.stderr);
+} finally {
+  await installer.close();
+}
 
-  // A second guest process checks the manifest, requires the installed package, and runs it.
-  const result = await sandbox.exec(['node', '/workspace/guest.cjs'], {
+// The installer is gone. Confirm its writes still exist in the real host directory.
+const metadata = JSON.parse(await readFile(join(hostDirectory, 'node_modules/is-number/package.json'), 'utf8'));
+assert.equal(metadata.version, '7.0.0');
+assert.ok((await readFile(join(hostDirectory, 'node_modules/is-number/index.js'))).length > 0);
+console.log('Installer closed; is-number@7.0.0 remains on the host');
+
+// A new sandbox receives only the guest script and a read-only mount of the saved installation.
+const verifier = await Sandbox.create({
+  cacheDir,
+  network: false,
+  mounts: [{ hostPath: hostDirectory, guestPath: '/mounted', readOnly: true }],
+  files: { '/workspace/guest.cjs': await readFile(new URL('./guest.cjs', import.meta.url)) },
+});
+try {
+  const result = await verifier.exec(['node', '/workspace/guest.cjs'], {
     cwd: '/workspace', timeoutMs: 30_000, check: true,
   });
   process.stdout.write(result.stdout);
   process.stderr.write(result.stderr);
-  assert.equal(JSON.parse(result.stdout).package, 'is-number@7.0.0');
-  console.log('PASS: Guest pnpm installs a package and another guest process runs it');
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.package, 'is-number@7.0.0');
+  assert.equal(report.loadedFrom, '/mounted/node_modules/is-number/index.js');
 } finally {
-  await sandbox.close();
+  await verifier.close();
 }
-
-// ---- Setup helpers: pinned archive source, size limit, and SHA512 verification ----
-
-async function acquireArchive() {
-  const cache = new URL('../../.artifacts/is-number-7.0.0.tgz', import.meta.url);
-  let bytes;
-  try {
-    bytes = await readFile(cache);
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
-    const response = await fetch('https://registry.npmjs.org/is-number/-/is-number-7.0.0.tgz', {
-      redirect: 'error', signal: AbortSignal.timeout(20_000),
-    });
-    assert.equal(response.status, 200);
-    const chunks = [];
-    let size = 0;
-    for await (const chunk of response.body) {
-      size += chunk.length;
-      assert.ok(size <= 64 * 1024, 'archive exceeds limit');
-      chunks.push(chunk);
-    }
-    bytes = Buffer.concat(chunks);
-  }
-  assert.ok(bytes.length > 0 && bytes.length <= 64 * 1024);
-  const integrity = 'sha512-' + createHash('sha512').update(bytes).digest('base64');
-  assert.equal(integrity, 'sha512-41Cifkg6e8TylSpdtTpeLVMqvSBEVzTttHvERD741+pnZ8ANv0004MRL43QKPDlK9cGvNp6NZWZUBlbGXYxxng==');
-  await mkdir(new URL('../../.artifacts/', import.meta.url), { recursive: true });
-  await writeFile(cache, bytes);
-  return bytes;
-}
+console.log('PASS: Guest pnpm installs into a host mount; a new sandbox requires and runs the persisted package');
+console.log('Installation kept at: ' + hostDirectory);

@@ -97,9 +97,12 @@ test('binary I/O respects offsets, append semantics, truncation and EOF', (t) =>
   const append = open(call, 'bytes.bin', { append: true });
   call('write', append, 0, Buffer.from([254, 255]));
   assert.deepEqual(fs.readFileSync(join(root, 'bytes.bin')), Buffer.from([0, 1, 2, 3, 254, 255]));
-  call('setLen', append, 8);
-  assert.deepEqual(call('read', append, 4, 8), Buffer.from([254, 255, 0, 0]));
   call('close', append);
+  // A Windows native append handle may not have FILE_WRITE_DATA for resizing.
+  const resize = open(call, 'bytes.bin', { write: true });
+  call('setLen', resize, 8);
+  assert.deepEqual(call('read', resize, 4, 8), Buffer.from([254, 255, 0, 0]));
+  call('close', resize);
   const truncated = open(call, 'bytes.bin', { write: true, truncate: true });
   assert.equal(call('fileStat', truncated).size, 0);
   call('close', truncated);
@@ -109,6 +112,23 @@ test('binary I/O respects offsets, append semantics, truncation and EOF', (t) =>
   assert.throws(() => call('read', appendOnly, 0, 3), { code: 'EPERM' });
   assert.deepEqual(fs.readFileSync(join(root, 'append-only.bin')), Buffer.from([1, 2, 3]));
   call('close', appendOnly);
+});
+
+test('truncating an append handle preserves the native host result', (t) => {
+  const { root, register } = fixture(t);
+  fs.writeFileSync(join(root, 'native.txt'), 'original');
+  fs.writeFileSync(join(root, 'mounted.txt'), 'original');
+  const fd = fs.openSync(join(root, 'native.txt'), 'a+');
+  let nativeError;
+  try { fs.ftruncateSync(fd, 2); }
+  catch (error) { nativeError = error; }
+  finally { fs.closeSync(fd); }
+  const call = rpc(register());
+  const file = open(call, 'mounted.txt', { append: true });
+  if (nativeError) assert.throws(() => call('setLen', file, 2), { code: nativeError.code });
+  else call('setLen', file, 2);
+  call('close', file);
+  assert.deepEqual(fs.readFileSync(join(root, 'mounted.txt')), fs.readFileSync(join(root, 'native.txt')));
 });
 
 test('path and descriptor timestamps preserve unspecified fields', (t) => {
@@ -208,8 +228,13 @@ test('rejects final and intermediate symlinks before reading or truncating targe
   fs.mkdirSync(join(directory, 'outside'));
   const target = join(directory, 'outside/secret.txt');
   fs.writeFileSync(target, 'keep secret');
-  fs.symlinkSync(target, join(root, 'file-link'));
-  fs.symlinkSync(join(directory, 'outside'), join(root, 'directory-link'));
+  try {
+    fs.symlinkSync(target, join(root, 'file-link'), 'file');
+    fs.symlinkSync(join(directory, 'outside'), join(root, 'directory-link'), 'dir');
+  } catch (error) {
+    if (process.platform === 'win32' && error.code === 'EPERM') return t.skip('Creating symlinks requires Windows privileges or Developer Mode');
+    throw error;
+  }
   const call = rpc(register());
   for (const path of ['file-link', 'directory-link/secret.txt']) {
     assert.throws(() => call('stat', path), { code: 'EPERM' });

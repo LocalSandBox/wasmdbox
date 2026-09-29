@@ -1,7 +1,7 @@
 // Node adapter for the experimental HostFileSystem ABI in @wasmer/sdk 0.19.0.
 // The build copies this compiled module into the private SDK distribution.
 import * as fs from 'node:fs';
-import { isAbsolute, join, posix } from 'node:path';
+import { isAbsolute, join, posix, sep } from 'node:path';
 
 const CHUNK_BYTES = 64 * 1024;
 const MAX_U32 = 0xffff_ffff;
@@ -54,6 +54,25 @@ function integer(value: unknown, name: string, maximum = Number.MAX_SAFE_INTEGER
 
 function overlap(a: string, b: string): boolean {
   return a === b || a.startsWith(b + '/') || b.startsWith(a + '/');
+}
+
+/** Internal path policy, also exercised on non-Windows CI hosts. */
+export function hostRelativePathParts(relative: unknown, windows: boolean): string[] {
+  if (typeof relative !== 'string' || relative.includes('\0') || relative.includes('\\') ||
+      relative.startsWith('/') || relative.split('/').includes('..')) {
+    throw error('EPERM', 'Only paths relative to the mount root are allowed');
+  }
+  const parts = relative.split('/').filter(part => part !== '' && part !== '.');
+  if (windows && parts.some(part =>
+    /[\x00-\x1f<>:"|?*]/.test(part) || /[ .]$/.test(part) ||
+    /^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³]|conin\$|conout\$)(?: *\.|$)/i.test(part))) {
+    throw error('EPERM', 'Windows device names, streams and ambiguous paths are not supported');
+  }
+  return parts;
+}
+
+function sameFile(a: fs.BigIntStats, b: fs.BigIntStats): boolean {
+  return a.dev === b.dev && a.ino === b.ino;
 }
 
 function validateMounts(configs: readonly HostDirectoryMount[]) {
@@ -151,12 +170,13 @@ class DirectoryFileSystem {
   #readOnly: boolean;
   #handles = new Map<number, HostFileHandle>();
   #nextHandle = 1;
+  #windows = process.platform === 'win32';
 
   constructor(root: string, readOnly: boolean) {
-    if (!['darwin', 'linux'].includes(process.platform) || !fs.constants.O_NOFOLLOW) {
-      throw error('ENOTSUP', 'This host mount adapter currently supports macOS and Linux');
+    if (!['darwin', 'linux', 'win32'].includes(process.platform) || (!this.#windows && !fs.constants.O_NOFOLLOW)) {
+      throw error('ENOTSUP', 'This host mount adapter supports macOS, Linux and Windows');
     }
-    this.#root = fs.realpathSync(root);
+    this.#root = this.#windows ? fs.realpathSync.native(root) : fs.realpathSync(root);
     this.#identity = fs.lstatSync(this.#root, { bigint: true });
     if (!this.#identity.isDirectory()) throw error('ENOTDIR', 'hostPath must be a directory');
     this.#readOnly = readOnly;
@@ -166,7 +186,7 @@ class DirectoryFileSystem {
 
   #rootExists() {
     const current = fs.lstatSync(this.#root, { bigint: true });
-    if (!current.isDirectory() || current.dev !== this.#identity.dev || current.ino !== this.#identity.ino) {
+    if (!current.isDirectory() || current.isSymbolicLink() || !sameFile(current, this.#identity)) {
       throw error('EPERM', 'Host mount root was replaced');
     }
   }
@@ -184,11 +204,7 @@ class DirectoryFileSystem {
   }
 
   #path(relative: unknown, allowMissing = false): string {
-    if (typeof relative !== 'string' || relative.includes('\0') || relative.includes('\\') ||
-        relative.startsWith('/') || relative.split('/').includes('..')) {
-      throw error('EPERM', 'Only paths relative to the mount root are allowed');
-    }
-    const parts = relative.split('/').filter((part) => part !== '' && part !== '.');
+    const parts = hostRelativePathParts(relative, this.#windows);
     let target = this.#root;
     for (let i = 0; i < parts.length; i++) {
       target = join(target, parts[i]);
@@ -197,6 +213,15 @@ class DirectoryFileSystem {
       catch (failure) {
         if (allowMissing && i === parts.length - 1 && (failure as NodeJS.ErrnoException).code === 'ENOENT') return target;
         throw failure;
+      }
+      if (this.#windows) {
+        // Use the same native canonical spelling for root and descendants. Do
+        // not case-fold: Windows also permits case-sensitive directories.
+        const canonical = fs.realpathSync.native(target);
+        const prefix = this.#root.endsWith(sep) ? this.#root : this.#root + sep;
+        if (canonical !== this.#root && !canonical.startsWith(prefix)) {
+          throw error('EPERM', 'Resolved path escapes the host mount root');
+        }
       }
       if (i !== parts.length - 1 && !stats.isDirectory()) throw error('ENOTDIR', 'Parent is not a directory');
     }
@@ -265,16 +290,36 @@ class DirectoryFileSystem {
             (!effectiveWrite && (create || exclusive || truncate))) throw error('EINVAL', 'Invalid open flags');
         if (effectiveWrite) this.#writable();
         const path = this.#path(name, create || exclusive);
+        const before = this.#windows ? fs.lstatSync(path, { bigint: true, throwIfNoEntry: false }) : undefined;
+        if (before) {
+          this.#regular(before);
+          if (!before.isFile()) throw error('EISDIR', 'Expected a regular file');
+        }
         let flags = read && effectiveWrite ? fs.constants.O_RDWR : effectiveWrite ? fs.constants.O_WRONLY : fs.constants.O_RDONLY;
         if (create || exclusive) flags |= fs.constants.O_CREAT;
         if (exclusive) flags |= fs.constants.O_EXCL;
         if (append) flags |= fs.constants.O_APPEND;
         // Never truncate until the opened inode has passed the regular-file check.
-        flags |= fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK;
+        if (this.#windows) {
+          // Windows has no O_NOFOLLOW. Never follow a newly appeared last
+          // component when creating; existing files need no O_CREAT (including
+          // hidden files). A concurrent creator can cause EEXIST; callers retry.
+          if (before && !exclusive) flags &= ~fs.constants.O_CREAT;
+          if (!before && (create || exclusive)) flags |= fs.constants.O_EXCL;
+        } else {
+          flags |= fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK;
+        }
         const fd = fs.openSync(path, flags, 0o600);
         try {
           const stats = this.#regular(fs.fstatSync(fd, { bigint: true }));
           if (!stats.isFile()) throw error('EISDIR', 'Expected a regular file');
+          if (this.#windows) {
+            this.#rootExists();
+            const after = this.#regular(fs.lstatSync(this.#path(name), { bigint: true }));
+            if (!sameFile(stats, after) || (before && !sameFile(before, stats))) {
+              throw error('EPERM', 'Host file changed while it was being opened');
+            }
+          }
           if (this.#nextHandle > MAX_U32) throw error('EMFILE', 'File handle IDs exhausted');
           if (truncate) fs.ftruncateSync(fd, 0);
           const id = this.#nextHandle++;

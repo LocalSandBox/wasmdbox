@@ -31,11 +31,11 @@ npm ci
 npm run build
 npm run runtime:prepare              # Optional: download runtime packages before creating a sandbox
 npm run demo                         # All standalone local examples
-node examples/01-file-read/main.js    # Run one example
-node examples/23-host-mount-read/main.js  # Read-only mounts
-node examples/24-host-mount-write/main.js # Writable mounts
-node examples/26-secret-substitution/main.js # Managed proxy and secret substitution
-npm run demo:install                  # Offline guest install; the host downloads the archive on first use
+node examples/file-read/main.js    # Run one example
+node examples/host-mount-read/main.js  # Read-only mounts
+node examples/host-mount-write/main.js # Writable mounts
+node examples/secret-substitution/main.js # Managed proxy and secret substitution
+npm run demo:install                  # Online guest install into a persistent host mount
 npm run test:proxy:online             # Optional public HTTPS smoke test
 npm test
 npm run test:package                  # After building, install the tarball outside the repo and verify JS/TS consumers
@@ -43,9 +43,11 @@ npm run test:package                  # After building, install the tarball outs
 
 The runtime is downloaded from the Wasmer registry on first use, through either `prepare()` or `create()`. Later calls reuse downloaded content, but package resolution may still query the registry, so offline creation is not guaranteed. The standalone examples explicitly use the project's `.wasmer/` directory; the library defaults to the user's cache directory. The regular networking examples each run their own local HTTPS server and need no real credentials.
 
+The [package-install example](docs/install-validation.md) installs `is-number@7.0.0` into `.artifacts/package-install/` through a writable mount. It closes the installer, then verifies the saved package from a new sandbox with a read-only mount and guest networking disabled. The host installation remains after both sandboxes close.
+
 The build produces JavaScript, declaration files, and a private copy of the Wasmer SDK inside the package. `test:package` uses the current build without rebuilding: it installs into a temporary directory with `--ignore-scripts`, makes the SDK directory read-only, and verifies commands, mounts, and HTTPS secret substitution. Consumer installation requires no postinstall script and does not modify a shared `@wasmer/sdk` dependency. The verified tarball is saved under `.artifacts/npm/`.
 
-GitHub Actions validates Linux and macOS plus the Windows guest runtime on pull requests and pushes to `main`. Windows validation covers commands, virtual files, package loading and networking; host directory mounts currently require Linux or macOS. Pushing a matching `v*` version tag runs validation and publishes the verified tarball to npm using trusted publishing. See the [publishing guide](docs/publishing.md) for the one-time account setup and release commands.
+GitHub Actions runs validation on Linux, macOS and Windows on pull requests and pushes to `main`, including commands, virtual files, local host directory mounts, package loading and networking. Windows mounts use the Node filesystem adapter without native addons; see the [mount guide](docs/sdk-host-mounts.md) for path restrictions and filesystem boundaries. Pushing a matching `v*` version tag runs validation and publishes the verified tarball to npm using trusted publishing. See the [publishing guide](docs/publishing.md) for the one-time account setup and release commands.
 
 ## Creation options
 
