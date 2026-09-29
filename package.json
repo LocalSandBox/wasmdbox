@@ -1,0 +1,47 @@
+{
+  "name": "wasmdbox",
+  "version": "0.1.0",
+  "description": "Managed Wasmer sandboxes for Node.js with explicit files, host mounts, and scoped network secrets",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "docs",
+    "examples",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "runtime:prepare": "node scripts/prepare-runtime.mjs",
+    "prepack": "npm run build",
+    "demo": "node examples/run-all.js",
+    "demo:cases": "node examples/run-all.js",
+    "demo:install": "node examples/package-install/main.js",
+    "typecheck": "tsc --noEmit",
+    "test:mount": "node --test tests/host-filesystem.test.mjs tests/host-mount.test.mjs",
+    "test:prepare": "node --test tests/prepare.test.mjs",
+    "test:proxy": "node --test tests/proxy.test.mjs tests/proxy-sdk.test.mjs",
+    "test:proxy:online": "node examples/11-api-authorization/online.js",
+    "test:ablation": "node scripts/ablation.mjs",
+    "test:package": "node scripts/verify-package.mjs",
+    "test": "npm run build && node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "selfsigned": "5.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@wasmer/sdk": "0.19.0",
+    "typescript": "^5.9.0"
+  }
+}
