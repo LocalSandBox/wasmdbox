@@ -5,7 +5,8 @@ const fs = require('node:fs');
 
 async function main() {
   assert.match(process.env.API_KEY, /^sandbox-[a-f0-9]{120}$/);
-  fs.writeFileSync('/mounted/result.txt', 'written by installed package\n');
+  fs.writeFileSync(process.env.RESULT_PATH, 'written by installed package\n');
+  assert.equal(fs.readFileSync(process.env.RESULT_PATH, 'utf8'), 'written by installed package\n');
   const response = await fetch(process.env.API_URL, {
     headers: { authorization: `Bearer ${process.env.API_KEY}` },
   });

@@ -13,6 +13,8 @@ node examples/24-host-mount-write/main.js
 
 The host requires Node 24+ and does not need the Wasmer CLI. Examples use the project's `.wasmer/` cache by default; the first run downloads the runtime from the Wasmer registry. Local networking cases listen on loopback and generate their HTTPS certificates in their own processes. `run-all.js` runs cases sequentially, reports failures, and exits with a nonzero status if any case fails.
 
+On Windows, the batch still executes all 24 numbered cases. Cases 23 and 24 are reported as `UNSUPPORTED` only when they return the adapter's explicit platform rejection. They are not counted as passed; any other failure fails the batch. Host mounts currently require Linux or macOS. CI also runs the preparation, extra-package, package-installation, and public HTTPS examples on all three platforms.
+
 ## Index
 
 | Case | Behavior |

@@ -35,6 +35,12 @@ jobs:
       - run: npm run typecheck
       - name: Run standalone examples
         run: npm run demo
+      - name: Run preparation, extra-package, installation and public HTTPS examples
+        run: |
+          node examples/prepare/main.js
+          node examples/extra-packages/main.js
+          npm run demo:install
+          npm run test:proxy:online
       - name: Verify the installable package
         run: npm run test:package
       - name: Run SDK patch ablations
@@ -62,6 +68,47 @@ jobs:
             .artifacts/package-verification.json
             .artifacts/ablation/results.json
             .artifacts/ablation/public-parent-deadline/results.json
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 14
+
+  windows:
+    name: Windows runtime
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+          cache: ${{ !startsWith(github.ref, 'refs/tags/') && 'npm' || '' }}
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - run: npm run typecheck
+      - name: Test packages, networking, secrets and release validation
+        run: node --test tests/prepare.test.mjs tests/proxy.test.mjs tests/proxy-sdk.test.mjs tests/secrets.test.mjs tests/release.test.mjs
+      - name: Run all numbered examples
+        run: npm run demo
+      - name: Run preparation, extra-package, installation and public HTTPS examples
+        run: |
+          node examples/prepare/main.js
+          node examples/extra-packages/main.js
+          npm run demo:install
+          npm run test:proxy:online
+      - name: Verify the installed package on Windows
+        run: npm run test:package
+      - name: Upload Windows validation report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: validation-windows
+          path: .artifacts/package-verification.json
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 14

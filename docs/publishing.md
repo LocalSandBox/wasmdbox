@@ -10,9 +10,13 @@ The workflows follow the separation used by [local-sandbox](https://github.com/L
 - Type checking and all numbered standalone examples.
 - A tarball install outside the checkout with lifecycle scripts disabled and the installed package made read-only. The consumer checks JavaScript, TypeScript, commands, mounts, HTTPS secrets, runtime preparation, and extra packages.
 
-Linux also runs the SDK patch and parent deadline ablations. The tests use local HTTPS fixtures and need no API credentials, but Wasmer package resolution and downloads require internet access. Host mounts currently support Linux and macOS; Windows is not in this validation matrix.
+Linux also runs the SDK patch and parent deadline ablations. The tests use local HTTPS fixtures and need no API credentials, but Wasmer package resolution and downloads require internet access.
 
-Each successful Linux run uploads an `npm-package` artifact containing `npm/wasmdbox-VERSION.tgz` and `package-verification.json`. The archive is the same one installed by the consumer test. Both platforms upload their validation reports. Artifacts are retained for 14 days.
+A separate `Windows runtime` job builds and type-checks on `windows-latest`, exercises package preparation and extra packages, TCP/HTTPS policy and secret substitution, and executes all 24 numbered examples. Host-mount cases 23 and 24 are reported as `UNSUPPORTED` only for the adapter's explicit platform rejection, not counted as passes. Any other failure fails CI. The job also installs and runs the tarball outside the checkout. The Windows consumer verifies that mounts reject explicitly, then uses guest virtual files for its runtime checks; its report records `hostMountWrite: false`. Windows failures block releases just like the Linux and macOS jobs.
+
+All three platforms also run the preparation, extra-package, package-installation, and public HTTPS examples. These require access to the npm and Wasmer registries and `https://example.com/`.
+
+Each successful Linux run uploads an `npm-package` artifact containing `npm/wasmdbox-VERSION.tgz` and `package-verification.json`. The archive is the same one installed by the consumer test. All three platforms upload their validation reports. Artifacts are retained for 14 days.
 
 ## One-time setup
 
@@ -70,7 +74,7 @@ git push origin v0.1.1
 [Publish npm](https://github.com/LocalSandBox/wasmdbox/blob/main/.github/workflows/publish.yml) then:
 
 1. Requires the tag to match both manifest versions and the lockfile root version, and requires the tagged commit to be part of `origin/main`.
-2. Runs the complete CI workflow against the tagged commit on both platforms.
+2. Runs the complete CI workflow against the tagged commit, including the Windows runtime job.
 3. Downloads the verified Linux tarball and checks its SHA512 against the consumer test report.
 4. Publishes with npm OIDC and provenance. Stable versions use `latest`; versions such as `0.2.0-rc.1` use `next`.
 

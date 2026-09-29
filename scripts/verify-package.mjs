@@ -44,6 +44,7 @@ try {
   const report = {
     verifiedAt: startedAt,
     node: process.version,
+    platform: process.platform,
     tarball: packed[0].filename,
     version: manifest.version,
     integrity: packed[0].integrity,
@@ -55,7 +56,9 @@ try {
     standaloneJavaScript: true,
     standaloneTypeScript: true,
     nodeAndBash: true,
-    hostMountWrite: true,
+    guestFileWrite: true,
+    hostMountWrite: process.platform !== 'win32',
+    unsupportedHostMountRejected: process.platform === 'win32',
     nativeHttpsSecretSubstitution: true,
     runtimePreparation: true,
     extraPackages: true,

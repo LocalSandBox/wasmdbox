@@ -45,7 +45,7 @@ The runtime is downloaded from the Wasmer registry on first use, through either 
 
 The build produces JavaScript, declaration files, and a private copy of the Wasmer SDK inside the package. `test:package` uses the current build without rebuilding: it installs into a temporary directory with `--ignore-scripts`, makes the SDK directory read-only, and verifies commands, mounts, and HTTPS secret substitution. Consumer installation requires no postinstall script and does not modify a shared `@wasmer/sdk` dependency. The verified tarball is saved under `.artifacts/npm/`.
 
-GitHub Actions validates Linux and macOS on pull requests and pushes to `main`. Pushing a matching `v*` version tag runs validation and publishes the verified tarball to npm using trusted publishing. See the [publishing guide](docs/publishing.md) for the one-time account setup and release commands.
+GitHub Actions validates Linux and macOS plus the Windows guest runtime on pull requests and pushes to `main`. Windows validation covers commands, virtual files, package loading and networking; host directory mounts currently require Linux or macOS. Pushing a matching `v*` version tag runs validation and publishes the verified tarball to npm using trusted publishing. See the [publishing guide](docs/publishing.md) for the one-time account setup and release commands.
 
 ## Creation options
 

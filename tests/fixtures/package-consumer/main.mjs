@@ -10,16 +10,26 @@ const resolved = await realpath(fileURLToPath(import.meta.resolve('wasmdbox')));
 assert.ok(resolved.startsWith(resolve('node_modules/wasmdbox') + sep), 'consumer must load the installed artifact');
 assert.equal(new CommandError('TIMEOUT', 'test') instanceof SandboxError, false);
 const extraPkgs = ['python/python@=3.13.20'];
+const supportsHostMounts = process.platform !== 'win32';
 await Sandbox.prepare({ cacheDir: process.env.WASMDBOX_VERIFY_CACHE, extraPkgs });
 await mkdir('mounted');
+if (!supportsHostMounts) {
+  await assert.rejects(Sandbox.create({
+    cacheDir: process.env.WASMDBOX_VERIFY_CACHE,
+    mounts: [{ hostPath: './mounted', guestPath: '/mounted' }],
+  }), { name: 'SandboxError', code: 'CREATE_FAILED', message: /supports macOS and Linux/ });
+}
 const fixture = await startFixture();
 let sandbox;
 try {
   sandbox = await Sandbox.create({
     cacheDir: process.env.WASMDBOX_VERIFY_CACHE,
     files: { '/workspace/guest.cjs': await readFile(new URL('./guest.cjs', import.meta.url)) },
-    mounts: [{ hostPath: './mounted', guestPath: '/mounted' }],
-    env: { API_URL: `https://package.demo.test:${fixture.port}/` },
+    mounts: supportsHostMounts ? [{ hostPath: './mounted', guestPath: '/mounted' }] : [],
+    env: {
+      API_URL: `https://package.demo.test:${fixture.port}/`,
+      RESULT_PATH: supportsHostMounts ? '/mounted/result.txt' : '/workspace/result.txt',
+    },
     network: {
       allow: ['package.demo.test'],
       dns: { 'package.demo.test': ['127.0.0.1'] },
@@ -36,8 +46,11 @@ try {
   try { await sandbox?.close(); }
   finally { await fixture.close(); }
 }
-assert.equal(await readFile('mounted/result.txt', 'utf8'), 'written by installed package\n');
-console.log('PASS: installed package JS consumer, Node/Bash, mounts and native HTTPS secrets');
+if (supportsHostMounts) {
+  assert.equal(await readFile('mounted/result.txt', 'utf8'), 'written by installed package\n');
+  console.log('PASS: installed package host mount writes persist');
+} else console.log('PASS: Windows host mounts reject explicitly; virtual file writes work');
+console.log('PASS: installed package JS consumer, Node/Bash, files and native HTTPS secrets');
 
 const extra = await Sandbox.create({ cacheDir: process.env.WASMDBOX_VERIFY_CACHE, extraPkgs });
 try {

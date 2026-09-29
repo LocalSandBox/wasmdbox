@@ -10,7 +10,7 @@ import { Sandbox } from 'wasmdbox';
 
 const execute = promisify(execFile);
 const root = fileURLToPath(new URL('../', import.meta.url));
-const loader = fileURLToPath(new URL('./fixtures/package-loader.mjs', import.meta.url));
+const loader = new URL('./fixtures/package-loader.mjs', import.meta.url).href;
 const runner = fileURLToPath(new URL('./fixtures/package-runner.mjs', import.meta.url));
 const python = 'python/python@=3.13.20';
 const runtime = 'wasmer/edgejs-quickjs@=0.1.4';
