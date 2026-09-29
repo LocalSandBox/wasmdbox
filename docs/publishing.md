@@ -76,6 +76,6 @@ git push origin v0.1.1
 
 Pushing `main` alone never publishes to npm. A failed workflow can be rerun from GitHub Actions after fixing account or environment configuration. An already-published version is skipped only when its registry integrity matches the verified tarball; a different existing artifact fails the release. Registry errors other than a missing version also fail. Changing package contents requires a new version.
 
-Project licensing and the bundled Wasmer SDK license are separate. The build preserves the SDK's original `LICENSE` at `dist/vendor/wasmer-sdk/LICENSE`; the package verification requires that file to be present.
+wasmdbox's own code is [MIT licensed](../LICENSE). The bundled Wasmer SDK uses its own Modified MIT License. The build preserves the SDK's original `LICENSE` at `dist/vendor/wasmer-sdk/LICENSE`; package verification requires both license files to be present.
 
 See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/) for the account configuration requirements.

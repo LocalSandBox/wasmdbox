@@ -219,3 +219,7 @@ For local services or a private CA, configure `network.dns` (domains mapped to I
 The [standalone example index](examples/README.md) covers file isolation, disabled networking, secret substitution, mounts, error classification, and streaming commands. Each example demonstrates complete public SDK usage, keeps guest code in a separate file, and has its own fixtures.
 
 The project pins `@wasmer/sdk@0.19.0`. The build adds the required mount, proxy, and failure-observation support only to the private SDK copy inside the package. The EdgeJS keepalive compatibility layer includes a TODO to remove it after an upstream fix. Dependency upgrades require another round of regression tests without patches and ablation checks.
+
+## License
+
+wasmdbox's own code is [MIT licensed](LICENSE). The bundled Wasmer SDK retains its own Modified MIT License at `dist/vendor/wasmer-sdk/LICENSE` in the published package.

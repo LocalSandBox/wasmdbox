@@ -1,6 +1,7 @@
 {
   "name": "wasmdbox",
   "version": "0.1.0",
+  "license": "MIT",
   "description": "Managed Wasmer sandboxes for Node.js with explicit files, host mounts, and scoped network secrets",
   "repository": {
     "type": "git",

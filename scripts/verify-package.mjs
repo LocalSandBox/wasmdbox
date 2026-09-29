@@ -18,7 +18,7 @@ try {
   assert.equal(packed.length, 1);
   const archive = join(temporary, packed[0].filename);
   const included = new Set(packed[0].files.map(file => file.path));
-  for (const path of ['dist/index.js', 'dist/index.d.ts', 'dist/internal/sandbox-worker.js', 'dist/assets/edgejs-keepalive.cjs', 'dist/vendor/wasmer-sdk/LICENSE']) {
+  for (const path of ['LICENSE', 'dist/index.js', 'dist/index.d.ts', 'dist/internal/sandbox-worker.js', 'dist/assets/edgejs-keepalive.cjs', 'dist/vendor/wasmer-sdk/LICENSE']) {
     assert.ok(included.has(path), `missing package file: ${path}`);
   }
   assert.ok([...included].some(path => path.startsWith('dist/vendor/wasmer-sdk/') && path.endsWith('.wasm')));
@@ -31,6 +31,8 @@ try {
   await run(npm, ['install', '--ignore-scripts', '--prefer-offline', '--no-audit', '--no-fund', ...dependencies], consumer);
   const installed = JSON.parse(await readFile(join(consumer, 'node_modules/wasmdbox/package.json'), 'utf8'));
   assert.equal(installed.name, 'wasmdbox');
+  assert.equal(installed.version, manifest.version);
+  assert.equal(installed.license, 'MIT');
   assert.equal(installed.scripts?.postinstall, undefined);
   await assert.rejects(readFile(join(consumer, 'node_modules/@wasmer/sdk/package.json')), { code: 'ENOENT' });
   await run(join(consumer, 'node_modules/typescript/bin/tsc'), [
