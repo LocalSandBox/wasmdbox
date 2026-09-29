@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmod, cp, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, cp, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,7 +18,7 @@ try {
   assert.equal(packed.length, 1);
   const archive = join(temporary, packed[0].filename);
   const included = new Set(packed[0].files.map(file => file.path));
-  for (const path of ['dist/index.js', 'dist/index.d.ts', 'dist/internal/sandbox-worker.js', 'dist/assets/edgejs-keepalive.cjs']) {
+  for (const path of ['dist/index.js', 'dist/index.d.ts', 'dist/internal/sandbox-worker.js', 'dist/assets/edgejs-keepalive.cjs', 'dist/vendor/wasmer-sdk/LICENSE']) {
     assert.ok(included.has(path), `missing package file: ${path}`);
   }
   assert.ok([...included].some(path => path.startsWith('dist/vendor/wasmer-sdk/') && path.endsWith('.wasm')));
@@ -43,6 +43,8 @@ try {
     verifiedAt: startedAt,
     node: process.version,
     tarball: packed[0].filename,
+    version: manifest.version,
+    integrity: packed[0].integrity,
     shasum: packed[0].shasum,
     ablationDocumentSha256: createHash('sha256').update(await readFile(join(consumer, 'node_modules/wasmdbox/docs/ablation.md'))).digest('hex'),
     files: included.size,
@@ -56,7 +58,10 @@ try {
     runtimePreparation: true,
     extraPackages: true,
   };
-  await mkdir(join(root, '.artifacts'), { recursive: true });
+  const artifactDirectory = join(root, '.artifacts/npm');
+  await rm(artifactDirectory, { recursive: true, force: true });
+  await mkdir(artifactDirectory, { recursive: true });
+  await copyFile(archive, join(artifactDirectory, packed[0].filename));
   await writeFile(join(root, '.artifacts/package-verification.json'), JSON.stringify(report, null, 2) + '\n');
   console.log(`PASS: npm pack → outside-repository install --ignore-scripts (${included.size} files)`);
 } finally {

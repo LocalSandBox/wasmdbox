@@ -1,0 +1,96 @@
+name: Publish npm
+
+on:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Validate release tag
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      npm-tag: ${{ steps.release.outputs.npm-tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Validate version and main ancestry
+        id: release
+        run: node scripts/release-metadata.mjs
+
+  validate:
+    needs: release
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Publish verified tarball
+    needs: [release, validate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - uses: actions/download-artifact@v7
+        with:
+          name: npm-package
+          path: .artifacts
+      - name: Verify artifact and check published version
+        id: package
+        env:
+          RELEASE_VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { createHash } from 'node:crypto';
+          import { appendFile, readFile } from 'node:fs/promises';
+          const version = process.env.RELEASE_VERSION;
+          const report = JSON.parse(await readFile('.artifacts/package-verification.json', 'utf8'));
+          const filename = `wasmdbox-${version}.tgz`;
+          assert.equal(report.tarball, filename);
+          assert.equal(report.version, version);
+          const bytes = await readFile(`.artifacts/npm/${filename}`);
+          const integrity = `sha512-${createHash('sha512').update(bytes).digest('base64')}`;
+          assert.equal(integrity, report.integrity, 'tarball differs from the verified artifact');
+          const response = await fetch(`https://registry.npmjs.org/wasmdbox/${version}`, {
+            signal: AbortSignal.timeout(30_000),
+          });
+          if (response.status === 404) {
+            await appendFile(process.env.GITHUB_OUTPUT, 'publish=true\n');
+          } else {
+            assert.ok(response.ok, `npm registry returned HTTP ${response.status}`);
+            const published = await response.json();
+            assert.equal(published.dist.integrity, integrity, 'this version already exists with different contents');
+            console.log(`wasmdbox@${version} is already published with the same contents`);
+            await appendFile(process.env.GITHUB_OUTPUT, 'publish=false\n');
+          }
+          JS
+      - name: Publish with npm trusted publishing
+        if: steps.package.outputs.publish == 'true'
+        env:
+          RELEASE_VERSION: ${{ needs.release.outputs.version }}
+          NPM_TAG: ${{ needs.release.outputs.npm-tag }}
+        run: npm publish ".artifacts/npm/wasmdbox-${RELEASE_VERSION}.tgz" --ignore-scripts --access public --provenance --tag "$NPM_TAG"

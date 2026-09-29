@@ -43,7 +43,9 @@ npm run test:package                  # After building, install the tarball outs
 
 The runtime is downloaded from the Wasmer registry on first use, through either `prepare()` or `create()`. Later calls reuse downloaded content, but package resolution may still query the registry, so offline creation is not guaranteed. The standalone examples explicitly use the project's `.wasmer/` directory; the library defaults to the user's cache directory. The regular networking examples each run their own local HTTPS server and need no real credentials.
 
-The build produces JavaScript, declaration files, and a private copy of the Wasmer SDK inside the package. `test:package` uses the current build without rebuilding: it installs into a temporary directory with `--ignore-scripts`, makes the SDK directory read-only, and verifies commands, mounts, and HTTPS secret substitution. Consumer installation requires no postinstall script and does not modify a shared `@wasmer/sdk` dependency. This repository verifies installable artifacts; this refactor does not include publishing to npm.
+The build produces JavaScript, declaration files, and a private copy of the Wasmer SDK inside the package. `test:package` uses the current build without rebuilding: it installs into a temporary directory with `--ignore-scripts`, makes the SDK directory read-only, and verifies commands, mounts, and HTTPS secret substitution. Consumer installation requires no postinstall script and does not modify a shared `@wasmer/sdk` dependency. The verified tarball is saved under `.artifacts/npm/`.
+
+GitHub Actions validates Linux and macOS on pull requests and pushes to `main`. Pushing a matching `v*` version tag runs validation and publishes the verified tarball to npm using trusted publishing. See the [publishing guide](docs/publishing.md) for the one-time account setup and release commands.
 
 ## Creation options
 
