@@ -12,6 +12,8 @@ The workflows follow the separation used by [local-sandbox](https://github.com/L
 
 Linux also runs the SDK patch and parent deadline ablations. The tests use local HTTPS fixtures and need no API credentials, but Wasmer package resolution and downloads require internet access.
 
+CI runs test files sequentially so separate integration suites do not compete with each other's Wasmer worker pools on hosted runners. Tests that exercise multiple live sandboxes still do so, and command and cleanup deadlines are unchanged.
+
 A separate `Windows runtime` job builds and type-checks on `windows-latest`, exercises package preparation and extra packages, TCP/HTTPS policy and secret substitution, and executes all 24 numbered examples. Host-mount cases 23 and 24 are reported as `UNSUPPORTED` only for the adapter's explicit platform rejection, not counted as passes. Any other failure fails CI. The job also installs and runs the tarball outside the checkout. The Windows consumer verifies that mounts reject explicitly, then uses guest virtual files for its runtime checks; its report records `hostMountWrite: false`. Windows failures block releases just like the Linux and macOS jobs.
 
 All three platforms also run the preparation, extra-package, package-installation, and public HTTPS examples. These require access to the npm and Wasmer registries and `https://example.com/`.
