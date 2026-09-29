@@ -95,7 +95,11 @@ test('preparation failure, timeout, cancellation and cleanup use SandboxError', 
 });
 
 test('prepare and create validate extraPkgs and preparation startup options', async () => {
-  for (const extraPkgs of [null, 'python/python', [null], [7], [''], [' '], ['a\0b'], new Array(1)]) {
+  for (const extraPkgs of [
+    null, 'python/python', [null], [7], [''], [' '], ['a\0b'], new Array(1),
+    [new Uint8Array()], [Buffer.alloc(0)], [new ArrayBuffer(8)],
+    [new DataView(new ArrayBuffer(8))], [new Uint16Array([1])], [[1, 2]], [{}],
+  ]) {
     for (const method of ['prepare', 'create']) {
       await assert.rejects(Sandbox[method]({ extraPkgs }), { name: 'SandboxError', code: 'INVALID_OPTIONS' });
     }

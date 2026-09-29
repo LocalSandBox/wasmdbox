@@ -65,16 +65,39 @@ const sandbox = await Sandbox.create({
 
 - `files` imports strings or `Uint8Array` values at creation time for guest scripts and initial data.
 - `env` explicitly passes environment variables to the guest. Host environment variables are not forwarded automatically.
-- `extraPkgs` adds Wasmer registry packages to the default runtime. It never replaces the default runtime; omitting it or passing `[]` loads only the default runtime and its dependencies.
+- `extraPkgs` accepts `readonly (string | Uint8Array)[]`: Wasmer registry references, local package bytes (including Node Buffers), or a mixture. It never replaces the default runtime; omitting it or passing `[]` loads only the default runtime and its dependencies.
 - `mounts` mounts existing host directories. Relative `hostPath` values resolve against the host's current working directory. Guest changes to writable mounts go directly to disk; read-only mounts reject changes. See the [mount guide](docs/sdk-host-mounts.md).
 - Omitting `network` or setting it to `false` disables guest networking. `network: {}` enables a managed TCP proxy.
 - `startupTimeoutMs` defaults to 180 seconds. `signal` controls creation only; commands have separate timeout and cancellation options.
 
 **This release does not expose `sandbox.fs`.** Use the guest's Node `fs` or shell for file operations while it is running. Changes to the virtual `/workspace` are not automatically saved to the host; write persistent results to a writable mount. Closing the sandbox does not delete files in host mounts.
 
+## Loading a local WEBC package
+
+Read a bundled package on the host and pass its bytes to `extraPkgs`. It does not need to be published to a registry:
+
+```js
+import { readFile } from 'node:fs/promises';
+import { Sandbox } from 'wasmdbox';
+
+const webcBytes = await readFile(new URL('./hello.webc', import.meta.url));
+const sandbox = await Sandbox.create({ extraPkgs: [webcBytes] });
+try {
+  console.log((await sandbox.exec(['local-hello'], { check: true })).stdout);
+} finally {
+  await sandbox.close();
+}
+```
+
+Commands come from the package manifest. The [local-package example](examples/local-package/README.md) includes an unpublished `hello.webc`, its source, and a rebuild script. Run it after building with `node examples/local-package/main.js`; Rust and the Wasmer CLI are only needed to rebuild that fixture.
+
+Both `create()` and `prepare()` snapshot each byte view before returning control to the caller, without detaching the caller's buffer. Only the view's visible bytes are loaded. Empty byte arrays are invalid options; malformed package contents fail during loading. Strings retain their registry-reference meaning; read local paths with `readFile()` first.
+
+Local WEBC bytes remove the need to fetch that package itself. The default runtime and any package dependencies still use the cache/registry path, so this does not guarantee offline startup. Guest `network: false` does not disable host-side package acquisition.
+
 ## Preparing runtime packages
 
-`Sandbox.prepare()` optionally downloads the default runtime, additional packages, and their dependencies into the cache. It does not create a guest, mount directories, or start a proxy. It returns `Promise<void>` after releasing its client and worker.
+`Sandbox.prepare()` optionally loads the default runtime, additional packages, and their dependencies, downloading missing registry content into the cache. It accepts the same mixed `extraPkgs` list, including local bytes. It does not create a guest, mount directories, or start a proxy. It returns `Promise<void>` after releasing its client and worker.
 
 ```ts
 await Sandbox.prepare({
@@ -95,7 +118,7 @@ try {
 }
 ```
 
-The two calls are independent. `create()` always loads the packages from its own options, reuses matching cached content, and downloads anything missing. You can skip `prepare()`, prepare a larger set of packages, or pass different `extraPkgs` lists. A package being cached does not automatically make its commands available in a sandbox. Both APIs use the same default user cache directory; pass the same `cacheDir` to share a custom cache.
+The two calls are independent. `create()` always loads the packages from its own options, reuses matching cached content, and downloads anything missing. You can skip `prepare()`, prepare a larger set of packages, or pass different `extraPkgs` lists. A package being cached does not automatically make its commands available in a sandbox; local packages must also be supplied as bytes to each `create()` that needs them. Both APIs use the same default user cache directory; pass the same `cacheDir` to share a custom cache.
 
 Package references support Wasmer version expressions. Pin versions for predictable cache reuse; unpinned references may resolve to newer versions. Registry metadata queries remain allowed, so preparation does not guarantee offline startup. It does not retain an initialized runtime or eliminate later WASM initialization work.
 

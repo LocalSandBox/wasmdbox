@@ -9,7 +9,10 @@ const resolved = await realpath(fileURLToPath(import.meta.resolve('wasmdbox')));
 const installedEntry = await realpath('node_modules/wasmdbox/dist/index.js');
 assert.equal(resolved, installedEntry, 'consumer must load the installed artifact');
 assert.equal(new CommandError('TIMEOUT', 'test') instanceof SandboxError, false);
-const extraPkgs = ['python/python@=3.13.20'];
+const extraPkgs = [
+  'python/python@=3.13.20',
+  await readFile(new URL('../examples/local-package/hello.webc', import.meta.resolve('wasmdbox'))),
+];
 await Sandbox.prepare({ cacheDir: process.env.WASMDBOX_VERIFY_CACHE, extraPkgs });
 await mkdir('mounted');
 const fixture = await startFixture();
@@ -47,8 +50,9 @@ const extra = await Sandbox.create({ cacheDir: process.env.WASMDBOX_VERIFY_CACHE
 try {
   assert.match((await extra.exec(['python', '--version'], { check: true })).stdout, /^Python 3\./);
   assert.match((await extra.exec(['node', '--version'], { check: true })).stdout, /^v\d+/);
+  assert.equal((await extra.exec(['local-hello'], { check: true, timeoutMs: 30_000 })).stdout, 'hello from local webc\n');
 } finally { await extra.close(); }
-console.log('PASS: installed package prepare() and extraPkgs');
+console.log('PASS: installed package prepare(), registry references and local WEBC bytes');
 
 async function startFixture() {
   const certificate = await generate([{ name: 'commonName', value: 'package.demo.test' }], {

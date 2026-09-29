@@ -3,14 +3,20 @@ import {
   type PrepareOptions, type SandboxOptions, type CommandResult, type SandboxProcess,
   type NetworkOptions, type HostMount,
 } from 'wasmdbox';
+import { readFile } from 'node:fs/promises';
 
 const mount: HostMount = { hostPath: './data', guestPath: '/mounted', readOnly: true };
 const network: NetworkOptions = {
   allow: ['example.com'],
   secrets: { API_KEY: { value: 'typed-example', hosts: ['example.com'] } },
 };
-const preparation: PrepareOptions = { extraPkgs: ['python/python@=3.13.20'], startupTimeoutMs: 180_000 };
-const options: SandboxOptions = { extraPkgs: [], mounts: [mount], network, files: { '/workspace/input': new Uint8Array() } };
+const bytes = await readFile(new URL('./node_modules/wasmdbox/examples/local-package/hello.webc', import.meta.url));
+const packages = ['python/python@=3.13.20', bytes, new Uint8Array(bytes)] as const;
+const preparation: PrepareOptions = { extraPkgs: packages, startupTimeoutMs: 180_000 };
+const options: SandboxOptions = { extraPkgs: packages, mounts: [mount], network, files: { '/workspace/input': new Uint8Array() } };
+// @ts-expect-error Raw ArrayBuffers are not package byte views.
+const invalid: PrepareOptions = { extraPkgs: [new ArrayBuffer(8)] };
+void invalid;
 
 async function consume(): Promise<CommandResult> {
   const prepared: void = await Sandbox.prepare(preparation);

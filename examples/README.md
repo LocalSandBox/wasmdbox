@@ -13,7 +13,7 @@ node examples/host-mount-write/main.js
 
 The host requires Node 24+ and does not need the Wasmer CLI. Examples use the project's `.wasmer/` cache by default; the first run downloads the runtime from the Wasmer registry. Local networking cases listen on loopback and generate their HTTPS certificates in their own processes. `run-all.js` runs cases sequentially, reports failures, and exits with a nonzero status if any case fails.
 
-The batch executes all 24 local examples on Linux, macOS and Windows, including read-only and writable host mounts. A mount failure fails the batch on every platform. CI also runs preparation, extra-package, persistent package-installation and public HTTPS examples on all three platforms. Windows mount coverage targets local disk directories; see the [mount guide](../docs/sdk-host-mounts.md) for restrictions.
+The batch executes all 25 local examples on Linux, macOS and Windows, including local WEBC loading and read-only and writable host mounts. A mount failure fails the batch on every platform. CI also runs preparation, extra-package, persistent package-installation and public HTTPS examples on all three platforms. Windows mount coverage targets local disk directories; see the [mount guide](../docs/sdk-host-mounts.md) for restrictions.
 
 ## Index
 
@@ -43,8 +43,11 @@ The batch executes all 24 local examples on Linux, macOS and Windows, including 
 | [secret-substitution](secret-substitution/main.js) | Replace the same secret in a URL, header, and JSON body |
 | [command-errors](command-errors/main.js) | Nonzero results by default, check:true, and two error classes |
 | [streaming](streaming/main.js) | stdin, streaming stdout, and wait |
+| [local-package](local-package/main.js) | Load an unpublished bundled WEBC as bytes and execute its manifest command |
 
-The default batch contains these 24 examples, discovered by directory name and run in alphabetical order. `prepare`, `extra-packages`, and `package-install` are optional examples with separate commands below.
+The default batch contains these 25 examples, discovered by directory name and run in alphabetical order. `prepare`, `extra-packages`, and `package-install` are optional examples with separate commands below.
+
+Run `node examples/local-package/main.js` for the local WEBC PoC. Its prebuilt fixture needs no extra host tools; see its [rebuild instructions](local-package/README.md) for the Rust source and manifest. Like the other local examples, its default runtime may need to be downloaded on first use.
 
 `work-parent-path-denied` and `app-parent-path-denied` verify that unimported files do not exist; they do not prohibit all virtual paths containing `..`. `tcp-loopback-denied` and `tcp-ipv6-denied` start real loopback listeners and confirm that no connection arrives, in addition to checking the guest error. `domain-denied` and `domain-suffix-denied` also confirm that the fixture receives no connection, so a TLS or connection failure cannot be mistaken for a policy rejection.
 

@@ -77,6 +77,9 @@ export class Sandbox {
     try {
       sandbox = new Sandbox(structuredClone({
         ...settings, mode,
+        // Snapshot only each view's bytes, including Buffer and shared-memory
+        // views, before yielding. Caller buffers remain owned by the caller.
+        extraPkgs: options.extraPkgs?.map(pkg => typeof pkg === 'string' ? pkg : new Uint8Array(pkg)),
         cacheDir: resolve(options.cacheDir ?? defaultCacheDir()),
         mounts: options.mounts?.map(mount => ({ ...mount, hostPath: resolve(mount.hostPath) })),
       }));
@@ -333,11 +336,15 @@ function validateEnv(env: Readonly<Record<string, string>> | undefined) {
     if (!name || /[=\0]/.test(name) || typeof value !== 'string' || value.includes('\0')) invalid('env must contain valid names and string values');
   }
 }
-function validateExtraPkgs(packages: readonly string[] | undefined) {
+function validateExtraPkgs(packages: PrepareOptions['extraPkgs']) {
   if (packages === undefined) return;
-  if (!Array.isArray(packages)) invalid('extraPkgs must be an array of package references');
+  if (!Array.isArray(packages)) invalid('extraPkgs must be an array of package references or bytes');
   for (const pkg of packages) {
-    if (typeof pkg !== 'string' || !pkg.trim() || pkg.includes('\0')) invalid('extraPkgs must contain nonempty package references without NUL bytes');
+    if (typeof pkg === 'string') {
+      if (!pkg.trim() || pkg.includes('\0')) invalid('extraPkgs references must be nonempty and contain no NUL bytes');
+    } else if (!(pkg instanceof Uint8Array) || !pkg.byteLength) {
+      invalid('extraPkgs must contain package references or nonempty Uint8Array values');
+    }
   }
 }
 function validResult(result: CommandResult): boolean {

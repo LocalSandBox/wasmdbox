@@ -1,6 +1,7 @@
 // Test-only observation and fault injection inside each supervisor worker.
 import { isMainThread, workerData } from 'node:worker_threads';
 import { appendFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import net from 'node:net';
 
 const report = process.env.WASMDBOX_PACKAGE_REPORT;
@@ -27,7 +28,10 @@ if (!isMainThread && workerData?.mode && report) {
   const loadMany = packages.loadMany;
   packages.loadMany = async function (sources, options) {
     const references = sources.filter(source => typeof source === 'string');
-    record({ type: 'load', sources: references });
+    record({ type: 'load', sources: references, bytes: sources.filter(source => source instanceof Uint8Array).map(source => ({
+      length: source.byteLength, offset: source.byteOffset, bufferLength: source.buffer.byteLength,
+      sha256: createHash('sha256').update(source).digest('hex'),
+    })) });
     if (fault === 'stalled-load') {
       setInterval(() => record({ type: 'tick' }), 20);
       return new Promise(() => {});

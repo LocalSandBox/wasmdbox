@@ -11,8 +11,8 @@ export interface HostMount {
 
 export interface PrepareOptions {
   cacheDir?: string;
-  /** Additional Wasmer packages; the default runtime is always included. */
-  extraPkgs?: readonly string[];
+  /** Additional Wasmer package references or bytes; the default runtime is always included. */
+  extraPkgs?: readonly (string | Uint8Array)[];
   /** Maximum preparation or creation time. Default: 180 seconds. */
   startupTimeoutMs?: number;
   /** Cancels preparation or creation only; commands have their own signal. */

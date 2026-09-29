@@ -18,7 +18,7 @@ try {
   assert.equal(packed.length, 1);
   const archive = join(temporary, packed[0].filename);
   const included = new Set(packed[0].files.map(file => file.path));
-  for (const path of ['LICENSE', 'dist/index.js', 'dist/index.d.ts', 'dist/internal/sandbox-worker.js', 'dist/assets/edgejs-keepalive.cjs', 'dist/vendor/wasmer-sdk/LICENSE']) {
+  for (const path of ['LICENSE', 'dist/index.js', 'dist/index.d.ts', 'dist/internal/sandbox-worker.js', 'dist/assets/edgejs-keepalive.cjs', 'dist/vendor/wasmer-sdk/LICENSE', 'examples/local-package/hello.webc']) {
     assert.ok(included.has(path), `missing package file: ${path}`);
   }
   assert.ok([...included].some(path => path.startsWith('dist/vendor/wasmer-sdk/') && path.endsWith('.wasm')));
@@ -61,6 +61,7 @@ try {
     nativeHttpsSecretSubstitution: true,
     runtimePreparation: true,
     extraPackages: true,
+    localWebcPackages: true,
   };
   const artifactDirectory = join(root, '.artifacts/npm');
   await rm(artifactDirectory, { recursive: true, force: true });

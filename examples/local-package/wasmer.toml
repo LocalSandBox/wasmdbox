@@ -1,0 +1,16 @@
+[package]
+name = "wasmdbox-examples/local-hello"
+version = "0.1.0"
+description = "Unpublished local WEBC fixture for wasmdbox"
+license = "MIT"
+entrypoint = "local-hello"
+
+[[module]]
+name = "hello"
+source = "hello.wasm"
+abi = "wasi"
+
+[[command]]
+name = "local-hello"
+module = "hello"
+runner = "wasi"
