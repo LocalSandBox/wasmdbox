@@ -134,7 +134,11 @@ test('public host mounts through real WASM workers', { timeout: 240_000 }, async
     }
     assert.match(output, /fd-open/);
     assert.ok(activeHandles(observations(report).slice(start)).size > 0, 'guest open reaches a native host descriptor');
-    await box.close();
+    try { await box.close(); }
+    catch (error) {
+      console.error('Host descriptor events before close failed:', observations(report).slice(start));
+      throw error;
+    }
     await assert.rejects(proc.wait(), { code: 'SANDBOX_CLOSED' });
     assertReleased(observations(report).slice(start));
   });

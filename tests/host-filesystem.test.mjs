@@ -274,6 +274,10 @@ test('replacing the mount root revokes path and open-handle operations', (t) => 
   const call = rpc(lease);
   const file = open(call, 'data.txt', { write: true });
   const moved = join(directory, 'old-root');
+  // Windows locks directories containing open files. Move the file first while
+  // keeping its descriptor open, then replace the registered mount root.
+  const movedFile = join(directory, 'opened.txt');
+  fs.renameSync(join(root, 'data.txt'), movedFile);
   fs.renameSync(root, moved);
   fs.mkdirSync(root);
   fs.writeFileSync(join(root, 'data.txt'), 'replacement');
@@ -284,7 +288,7 @@ test('replacing the mount root revokes path and open-handle operations', (t) => 
   assert.equal(call('close', file), null, 'root replacement must not prevent closing an existing descriptor');
   assert.equal(hostFileSystemStats().handles, handlesBeforeClose - 1);
   lease.close();
-  assert.equal(fs.readFileSync(join(moved, 'data.txt'), 'utf8'), 'original');
+  assert.equal(fs.readFileSync(movedFile, 'utf8'), 'original');
   assert.equal(fs.readFileSync(join(root, 'data.txt'), 'utf8'), 'replacement');
 });
 
@@ -347,14 +351,15 @@ test('lease and owner cleanup close their native file descriptors', (t) => {
   const { root, owner, register } = fixture(t);
   const path = join(root, 'data.txt');
   fs.writeFileSync(path, 'available');
-  const canonicalPath = fs.realpathSync(path);
+  const target = fs.statSync(path, { bigint: true });
   const first = register();
   const second = register([{ hostPath: root, guestPath: '/another' }]);
   const originalOpen = nativeFs.openSync;
   const descriptors = [];
   const mockedOpen = t.mock.method(nativeFs, 'openSync', (...args) => {
     const fd = originalOpen(...args);
-    if (args[0] === canonicalPath) descriptors.push(fd);
+    const opened = fs.fstatSync(fd, { bigint: true });
+    if (opened.dev === target.dev && opened.ino === target.ino) descriptors.push(fd);
     return fd;
   });
   try {

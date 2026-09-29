@@ -20,7 +20,7 @@ test('ESM eval callers and process-only flags support worker startup', { timeout
 for (const mode of ['runtime-error', 'stalled-command', 'startup-failure', 'close-failure', 'invalid-protocol', 'unexpected-exit', 'proxy-failure']) {
   test(`infrastructure fault stays distinct and isolated: ${mode}`, { timeout: 60_000 }, async () => {
     const { stdout } = await execute(process.execPath, [
-      '--import', fileURLToPath(new URL('./fixtures/fault-loader.mjs', import.meta.url)),
+      '--import', new URL('./fixtures/fault-loader.mjs', import.meta.url).href,
       fileURLToPath(new URL('./fixtures/fault-runner.mjs', import.meta.url)), mode,
     ], { cwd: root, timeout: 50_000 });
     assert.match(stdout, new RegExp(mode));

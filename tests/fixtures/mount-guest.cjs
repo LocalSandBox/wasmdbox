@@ -29,8 +29,19 @@ switch (process.argv[2]) {
     break;
   }
   case 'boundaries': {
+    const outside = process.env.OUTSIDE_PATH;
+    assert.throws(() => fs.readFileSync(outside), 'read host path');
+    if (require('node:path').posix.isAbsolute(outside)) {
+      assert.throws(() => fs.writeFileSync(outside, 'bad'), 'write host path');
+    } else {
+      // A Windows drive path is a relative filename in the POSIX guest. A write
+      // creates a virtual file; the host test must verify its own file is intact.
+      fs.writeFileSync(outside, 'virtual only');
+      assert.equal(fs.readFileSync(outside, 'utf8'), 'virtual only');
+      fs.unlinkSync(outside);
+    }
     for (const path of [
-      process.env.OUTSIDE_PATH, '/mounted/../outside/secret.txt',
+      '/mounted/../outside/secret.txt',
       '/mounted/dir-link/secret.txt', '/mounted/hard-link',
     ]) {
       assert.throws(() => fs.readFileSync(path), 'read ' + path);
