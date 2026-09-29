@@ -2,7 +2,7 @@ import { parentPort, workerData } from 'node:worker_threads';
 import { readFile } from 'node:fs/promises';
 import type { Wasmer, Sandbox as WasmerSandbox, Process as WasmerProcess } from '@wasmer/sdk/node';
 import { startProxy } from './proxy.js';
-import type { ParentMessage, WorkerMessage, WorkerOptions, WireCommandOptions } from './protocol.js';
+import { deferred, type ParentMessage, type WorkerMessage, type WorkerOptions, type WireCommandOptions } from './protocol.js';
 import type { SandboxErrorCode } from '../errors.js';
 
 const port = parentPort!;
@@ -17,7 +17,8 @@ let proxy: Awaited<ReturnType<typeof startProxy>> | undefined;
 let failed = false;
 let closing = false;
 let unsubscribe: (() => void) | undefined;
-const running = new Map<number, { process?: WasmerProcess; cancelled: boolean; task?: Promise<void> }>();
+type RunningCommand = { process?: WasmerProcess; cancelled: boolean; task?: Promise<void>; stopDraining?: () => void };
+const running = new Map<number, RunningCommand>();
 let baseEnv: Record<string, string> = {};
 let caBundle = false;
 
@@ -100,7 +101,7 @@ function commandEnv(override: Readonly<Record<string, string>> = {}) {
 }
 
 async function run(id: number, argv: string[], settings: WireCommandOptions) {
-  const record: { process?: WasmerProcess; cancelled: boolean; task?: Promise<void> } = { cancelled: false };
+  const record: RunningCommand = { cancelled: false };
   running.set(id, record);
   record.task = (async () => {
     let started = false;
@@ -130,7 +131,14 @@ async function run(id: number, argv: string[], settings: WireCommandOptions) {
         } catch { inputFailed = true; }
       })();
       const output = await record.process.wait();
-      await Promise.all([drains, input]);
+      if (failed || closing) return;
+      // A killed WASIX process can finish before its output pipes report EOF
+      // (observed on Windows). Shutdown must reach sandbox/client.close() to
+      // release those pipes, rather than waiting for them before cleanup.
+      const stopped = deferred<void>();
+      record.stopDraining = stopped.resolve;
+      try { await Promise.race([Promise.all([drains, input]), stopped.promise]); }
+      finally { record.stopDraining = undefined; }
       if (failed || closing) return;
       const result = {
         exitCode: output.exitCode,
@@ -168,6 +176,7 @@ async function close() {
   let cleanupFailed = false;
   for (const record of running.values()) {
     record.cancelled = true;
+    record.stopDraining?.();
     try { await record.process?.kill(); } catch { cleanupFailed = true; }
   }
   await Promise.allSettled([...running.values()].map(record => record.task));

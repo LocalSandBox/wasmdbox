@@ -2,6 +2,7 @@
 import workers, { isMainThread, workerData, parentPort } from 'node:worker_threads';
 import net from 'node:net';
 import { syncBuiltinESMExports } from 'node:module';
+import { writeFileSync } from 'node:fs';
 
 const mode = !isMainThread && workerData?.env?.WASMDBOX_TEST_FAULT;
 if (mode === 'runtime-error') {
@@ -26,6 +27,18 @@ if (['stalled-command', 'startup-failure', 'close-failure'].includes(mode)) {
     const core = await import('../../dist/vendor/wasmer-sdk/pkg/wasmer_sdk_js.js');
     core.SandboxBuilderCore.prototype.start = function () { this.free(); throw new Error('injected core startup failure'); };
   }
+}
+if (mode === 'stalled-output') {
+  const sdk = await import('../../dist/vendor/wasmer-sdk/dist/node.js');
+  sdk.ReadableBytes.prototype[Symbol.asyncIterator] = async function* () {
+    await new Promise(() => {});
+  };
+  const wait = sdk.Process.prototype.wait;
+  sdk.Process.prototype.wait = async function (...args) {
+    const output = await wait.apply(this, args);
+    if (workerData.env.WASMDBOX_TEST_WAIT_REPORT) writeFileSync(workerData.env.WASMDBOX_TEST_WAIT_REPORT, 'finished');
+    return output;
+  };
 }
 if (mode === 'invalid-protocol' || mode === 'unexpected-exit') {
   parentPort.once('message', () => {

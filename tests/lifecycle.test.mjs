@@ -6,6 +6,16 @@ import assert from 'node:assert/strict';
 
 const execute = promisify(execFile);
 const root = fileURLToPath(new URL('../', import.meta.url));
+for (const mode of ['running', 'finished']) {
+  test(`close releases a ${mode} process even when SDK output never reaches EOF`, { timeout: 60_000 }, async () => {
+    const { stdout } = await execute(process.execPath, [
+      '--import', new URL('./fixtures/fault-loader.mjs', import.meta.url).href,
+      fileURLToPath(new URL('./fixtures/close-stalled-output.mjs', import.meta.url)), mode,
+    ], { cwd: root, timeout: 50_000 });
+    assert.match(stdout, /stalled output closed/);
+  });
+}
+
 test('ESM eval callers and process-only flags support worker startup', { timeout: 60_000 }, async () => {
   for (const flag of [['--input-type=module'], ['--input-type', 'module']]) {
     const { stdout } = await execute(process.execPath, ['--stack-trace-limit=10', ...flag, '-e', `

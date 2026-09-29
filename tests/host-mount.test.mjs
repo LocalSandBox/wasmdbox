@@ -162,6 +162,6 @@ function assertReleased(events) {
   assert.ok(events.some(event => event.type === 'open'), 'must observe a native host open');
   assert.equal(activeHandles(events).size, 0, 'every native open must be closed');
   for (const event of events.filter(event => event.type === 'close')) {
-    assert.equal(event.released, true, 'fstat on the closed descriptor must return EBADF');
+    assert.equal(event.released, true, 'the closed descriptor must no longer reference the mounted file');
   }
 }

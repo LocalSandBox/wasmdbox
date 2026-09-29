@@ -28,7 +28,13 @@ if (!isMainThread && workerData?.mode === 'sandbox' && report && target) {
     if (id !== undefined) {
       handles.delete(fd);
       let released = false;
-      try { fstatSync(fd); } catch (error) { released = error.code === 'EBADF'; }
+      try {
+        // Other worker threads can reuse a process-wide descriptor immediately
+        // after close. The number need not stay vacant; it must stop referring
+        // to the mounted file that this observer saw being opened.
+        const current = fstatSync(fd, { bigint: true });
+        released = current.dev !== expected.dev || current.ino !== expected.ino;
+      } catch (error) { released = error.code === 'EBADF'; }
       record({ type: 'close', id, released });
     }
   };
