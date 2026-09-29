@@ -1,13 +1,15 @@
 import {
-  Sandbox, SandboxError, CommandError,
+  Sandbox, SandboxError, CommandError, NETWORK_PORT_POLICY_VERSION,
   type PrepareOptions, type SandboxOptions, type CommandResult, type SandboxProcess,
   type NetworkOptions, type HostMount,
 } from 'wasmdbox';
 import { readFile } from 'node:fs/promises';
 
+const policyVersion: 1 = NETWORK_PORT_POLICY_VERSION;
+void policyVersion;
 const mount: HostMount = { hostPath: './data', guestPath: '/mounted', readOnly: true };
 const network: NetworkOptions = {
-  allow: ['example.com'],
+  allow: ['example.com'], ports: [443],
   secrets: { API_KEY: { value: 'typed-example', hosts: ['example.com'] } },
 };
 const bytes = await readFile(new URL('./node_modules/wasmdbox/examples/local-package/hello.webc', import.meta.url));

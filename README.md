@@ -230,6 +230,7 @@ const response = await fetch('https://api.openai.com/v1/models', {
 All guest TCP connections pass through the managed proxy. For destinations matching a secret's host and port scope, the proxy uses TLS MITM to replace placeholders in request URL paths and queries, ordinary header values, and uncompressed bodies with their real values. The default Node guest automatically trusts the proxy CA; callers do not need to preload certificates or start the proxy manually.
 
 - `allow` and `deny` support domains, `*.example.com`, and IPv4/IPv6 CIDRs. Deny rules take precedence; when `allow` is provided, only matching destinations are permitted. With an allow list or a nonempty deny list, IP literals also require a matching IP/CIDR allow rule or `*`.
+- `network.ports` is an optional destination-port allowlist, intersected with the host policy. Omit it to permit any port, or use `[]` to deny every port. Values must be integers from 1 to 65535. For a private broker, combine its allowed host with `ports: [brokerPort]`. The public `NETWORK_PORT_POLICY_VERSION` export is `1` for this contract.
 - `secrets[name].hosts` supports exact and wildcard domains. `ports` defaults to `[443]`. Secret scope only limits credential use; it does not expand the network allow rules.
 - Connections without a matching secret rule pass through unchanged. An unavailable proxy never triggers a fallback to a direct connection.
 - MITM checks that the SOCKS target, SNI, and Host agree. It does not substitute routing, framing, or other protocol control fields.

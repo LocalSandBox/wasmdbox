@@ -31,6 +31,43 @@ test('domain wildcards, CIDR, deny precedence and resolved address filtering', (
   }
 });
 
+test('destination ports validate before opening a listener', async () => {
+  for (const ports of [null, 443, '443', [0], [-1], [65536], [1.5], [NaN], [Infinity], ['443'], [undefined], Array(1)]) {
+    await assert.rejects(startProxy({ ports }), { name: 'TypeError', message: 'Allowed ports must be integers from 1 to 65535' });
+  }
+});
+
+test('destination port policy blocks other services on the same allowed host', async t => {
+  let allowedConnections = 0;
+  let blockedConnections = 0;
+  const allowed = net.createServer(socket => { allowedConnections++; socket.resume(); });
+  const blocked = net.createServer(socket => { blockedConnections++; socket.end(); });
+  await listen(allowed);
+  await listen(blocked);
+  t.after(async () => { await close(allowed); await close(blocked); });
+  const options = { allow: ['broker.test'], dns: { 'broker.test': ['127.0.0.1'] } };
+  const allowedPort = allowed.address().port;
+  const ports = [allowedPort];
+  const proxy = await startProxy({ ...options, ports });
+  t.after(() => proxy.close());
+  // The policy snapshots caller input; later changes cannot widen it.
+  ports.push(blocked.address().port);
+  const connection = await connectSocks(proxy, 'broker.test', allowedPort);
+  connection.destroy();
+  await assert.rejects(connectSocks(proxy, 'broker.test', blocked.address().port));
+  assert.equal(allowedConnections, 1);
+  assert.equal(blockedConnections, 0);
+  assert.equal(proxy.stats.denied, 1);
+  const none = await startProxy({ ...options, ports: [] });
+  try { await assert.rejects(connectSocks(none, 'broker.test', allowedPort)); }
+  finally { await none.close(); }
+  assert.equal(allowedConnections, 1);
+  const unrestricted = await startProxy(options);
+  try { (await connectSocks(unrestricted, 'broker.test', blocked.address().port)).destroy(); }
+  finally { await unrestricted.close(); }
+  assert.equal(blockedConnections, 1);
+});
+
 test('invalid secrets and DNS overrides reject before opening a listener', async () => {
   for (const secrets of [
     { 'bad=name': { value: 'value', hosts: ['api.test'] } },
@@ -65,7 +102,7 @@ test('secrets MITM: scoped substitution, body framing, TLS identity and fail-clo
   await listen(fixture);
   const port = fixture.address().port;
   const options = {
-    allow: ['api.test', 'docs.test', '*.example.test', '127.0.0.0/8'], deny: ['blocked.test'],
+    allow: ['api.test', 'docs.test', '*.example.test', '127.0.0.0/8'], deny: ['blocked.test'], ports: [port],
     secrets: {
       API_TOKEN: { value: 'host-only-secret', hosts: ['api.test', '*.example.test', 'blocked.test'], ports: [port] },
       WRONG_PORT: { value: 'different-port-secret', hosts: ['api.test'] },
@@ -147,6 +184,14 @@ test('secrets MITM: scoped substitution, body framing, TLS identity and fail-clo
     const before = seen.length;
     await assert.rejects(connectSocks(proxy, 'blocked.test', port));
     const denied = await startProxy({ ...options, deny: ['127.0.0.0/8'] });
+    try { await assert.rejects(connectSocks(denied, 'api.test', port)); }
+    finally { await denied.close(); }
+    assert.equal(seen.length, before);
+  });
+
+  await t.test('secret ports cannot widen the destination-port allowlist', async () => {
+    const before = seen.length;
+    const denied = await startProxy({ ...options, ports: [] });
     try { await assert.rejects(connectSocks(denied, 'api.test', port)); }
     finally { await denied.close(); }
     assert.equal(seen.length, before);

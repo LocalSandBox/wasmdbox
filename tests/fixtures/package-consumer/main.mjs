@@ -1,10 +1,11 @@
-import { Sandbox, CommandError, SandboxError } from 'wasmdbox';
+import { Sandbox, CommandError, SandboxError, NETWORK_PORT_POLICY_VERSION } from 'wasmdbox';
 import assert from 'node:assert/strict';
 import { mkdir, readFile, realpath } from 'node:fs/promises';
 import { createServer } from 'node:https';
 import { fileURLToPath } from 'node:url';
 import { generate } from 'selfsigned';
 
+assert.equal(NETWORK_PORT_POLICY_VERSION, 1);
 const resolved = await realpath(fileURLToPath(import.meta.resolve('wasmdbox')));
 const installedEntry = await realpath('node_modules/wasmdbox/dist/index.js');
 assert.equal(resolved, installedEntry, 'consumer must load the installed artifact');
@@ -27,7 +28,7 @@ try {
       RESULT_PATH: '/mounted/result.txt',
     },
     network: {
-      allow: ['package.demo.test'],
+      allow: ['package.demo.test'], ports: [fixture.port],
       dns: { 'package.demo.test': ['127.0.0.1'] },
       caCerts: [fixture.ca],
       secrets: { API_KEY: { value: 'package-fixture-value', hosts: ['package.demo.test'], ports: [fixture.port] } },

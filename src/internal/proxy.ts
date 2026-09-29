@@ -10,6 +10,8 @@ import { createPolicy, normalizeHost, compileDomainPattern, type ResolvedAddress
 import { SecretReplacer, replaceSecrets, type SecretReplacement } from './secret-replacer.js';
 
 export interface NetworkOptions {
+  /** Destination-port allowlist. Omitted permits any port; [] denies every port. */
+  ports?: readonly number[];
   allow?: readonly string[];
   deny?: readonly string[];
   secrets?: Readonly<Record<string, {
@@ -56,6 +58,15 @@ const MAX_LEAF_CERTIFICATES = 128;
 /** All secret values and CA private keys remain in this host-side closure. */
 export async function startProxy(options: NetworkOptions = {}, onFatal?: (error: Error) => void): Promise<ProxyHandle> {
   const access = createPolicy(options);
+  if (options.ports !== undefined && (!Array.isArray(options.ports) || !Array.from(options.ports).every(validPort))) {
+    throw new TypeError('Allowed ports must be integers from 1 to 65535');
+  }
+  const allowedPorts = options.ports === undefined ? undefined : new Set(options.ports);
+  const checkPort = (port: number) => {
+    if (!validPort(port) || (allowedPorts !== undefined && !allowedPorts.has(port))) {
+      throw Object.assign(new Error('Proxy policy denied target port'), { code: 'EPERM' });
+    }
+  };
   const env: Record<string, string> = Object.create(null) as Record<string, string>;
   const secrets: SecretRule[] = Object.entries(options.secrets ?? {}).map(([name, secret]) => {
     if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) throw new TypeError('Invalid secret environment variable name');
@@ -186,7 +197,7 @@ export async function startProxy(options: NetworkOptions = {}, onFatal?: (error:
       if (request[0] !== 5 || request[1] !== 1 || request[2] !== 0) { socket.end(reply(7)); return; }
       const host = normalizeHost(await readHost(socket, request[3]));
       const port = (await readBytes(socket, 2)).readUInt16BE();
-      if (!validPort(port)) throw new Error('Invalid port');
+      checkPort(port);
       access.checkHost(host);
       const resolved = net.isIP(host) ? [{ address: host }] : overrides.get(host) ?? await dns.lookup(host, { all: true });
       const addresses = access.select(host, resolved);
@@ -249,6 +260,7 @@ export async function startProxy(options: NetworkOptions = {}, onFatal?: (error:
       const hostCount = request.rawHeaders.filter((value, index) => index % 2 === 0 && value.toLowerCase() === 'host').length;
       if (closing || !target || hostCount !== 1 || !validAuthority(request.headers.host, target)
           || !request.url?.startsWith('/') || request.url.startsWith('//')) { stats.denied++; fail(403); return; }
+      checkPort(target.port);
       const headers = stripHopHeaders(request.headers);
       for (const [name, value] of Object.entries(headers)) {
         if (IMMUTABLE_HEADERS.has(name) || value === undefined) continue;
