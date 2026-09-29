@@ -2,12 +2,12 @@ import { Sandbox, CommandError, SandboxError } from 'wasmdbox';
 import assert from 'node:assert/strict';
 import { mkdir, readFile, realpath } from 'node:fs/promises';
 import { createServer } from 'node:https';
-import { resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { generate } from 'selfsigned';
 
 const resolved = await realpath(fileURLToPath(import.meta.resolve('wasmdbox')));
-assert.ok(resolved.startsWith(resolve('node_modules/wasmdbox') + sep), 'consumer must load the installed artifact');
+const installedEntry = await realpath('node_modules/wasmdbox/dist/index.js');
+assert.equal(resolved, installedEntry, 'consumer must load the installed artifact');
 assert.equal(new CommandError('TIMEOUT', 'test') instanceof SandboxError, false);
 const extraPkgs = ['python/python@=3.13.20'];
 const supportsHostMounts = process.platform !== 'win32';
