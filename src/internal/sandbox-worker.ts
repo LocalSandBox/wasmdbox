@@ -7,7 +7,7 @@ import type { SandboxErrorCode } from '../errors.js';
 
 const port = parentPort!;
 const options = workerData as WorkerOptions;
-const DEFAULT_RUNTIME = 'wasmer/edgejs-quickjs@=0.1.4';
+const DEFAULT_RUNTIME = 'wasmer/edgejs-quickjs@=0.2.5';
 const INTERNAL = '/workspace/.wasmdbox';
 const COMPAT = `${INTERNAL}/edgejs-keepalive.cjs`;
 const CA = `${INTERNAL}/ca.pem`;

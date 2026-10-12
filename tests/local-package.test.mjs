@@ -12,7 +12,7 @@ const execute = promisify(execFile);
 const root = fileURLToPath(new URL('../', import.meta.url));
 const runner = fileURLToPath(new URL('./fixtures/local-package-runner.mjs', import.meta.url));
 const loader = new URL('./fixtures/package-loader.mjs', import.meta.url).href;
-const runtime = 'wasmer/edgejs-quickjs@=0.1.4';
+const runtime = 'wasmer/edgejs-quickjs@=0.2.5';
 
 test('local WEBC bytes cross the worker boundary and export runnable commands', { timeout: 240_000 }, async t => {
   const directory = await mkdtemp(join(tmpdir(), 'wasmdbox-local-webc-'));

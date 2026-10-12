@@ -27,7 +27,7 @@ function client(options = {}) {
 }
 
 async function runtime(wasmer) {
-  return wasmer.packages.load('wasmer/edgejs-quickjs@=0.1.4', { signal: AbortSignal.timeout(45_000) });
+  return wasmer.packages.load('wasmer/edgejs-quickjs@=0.2.5', { signal: AbortSignal.timeout(45_000) });
 }
 
 async function mountProbe() {

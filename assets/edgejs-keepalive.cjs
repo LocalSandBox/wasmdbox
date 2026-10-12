@@ -1,8 +1,9 @@
 'use strict';
 
-// TODO(edgejs-keepalive): remove this file and --require after a fixed EdgeJS
-// release replaces wasmer/edgejs-quickjs@=0.1.4 AND the unpatched fetch/keepalive
-// regression passes. Upstream: src/edge_tcp_wrap.cc, TcpSetKeepAlive WASIX path
+// TODO(edgejs-keepalive): remove this file and --require only after the pinned
+// EdgeJS release passes the full unpatched Node/Bash networking regressions.
+// The direct-IP fetch ablation already passes without this preload on 0.2.5.
+// Upstream: src/edge_tcp_wrap.cc, TcpSetKeepAlive WASIX path
 // (SO_KEEPALIVE without TCP_KEEP* timing options).
 // Undici sets keepalive while connecting; 0.1.4 then fails with ENOSYS. Deferring
 // avoids libuv's deferred timing options. Keepalive timing is not guaranteed.

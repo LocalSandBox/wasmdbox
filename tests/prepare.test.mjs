@@ -13,7 +13,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const loader = new URL('./fixtures/package-loader.mjs', import.meta.url).href;
 const runner = fileURLToPath(new URL('./fixtures/package-runner.mjs', import.meta.url));
 const python = 'python/python@=3.13.20';
-const runtime = 'wasmer/edgejs-quickjs@=0.1.4';
+const runtime = 'wasmer/edgejs-quickjs@=0.2.5';
 
 test('prepare and create independently acquire and reuse runtime packages', { timeout: 240_000 }, async t => {
   const directory = await mkdtemp(join(tmpdir(), 'wasmdbox-packages-'));
@@ -36,7 +36,7 @@ test('prepare and create independently acquire and reuse runtime packages', { ti
   await t.test('a new process creates from prepared content without downloading package bodies', async () => {
     const events = await run('create-extra', [python], { WASMDBOX_BLOCK_DOWNLOADS: '1' });
     assert.equal(events.some(event => event.type === 'fetch' && event.download), false);
-    assert.deepEqual(events.find(event => event.type === 'sandbox').ids, ['wasmer/edgejs-quickjs@0.1.4', 'python/python@3.13.20']);
+    assert.deepEqual(events.find(event => event.type === 'sandbox').ids, ['wasmer/edgejs-quickjs@0.2.5', 'python/python@3.13.20']);
   });
   await t.test('cached extras are not installed unless create requests them', async () => {
     await run('create-default', [], { WASMDBOX_BLOCK_DOWNLOADS: '1' });
@@ -47,9 +47,9 @@ test('prepare and create independently acquire and reuse runtime packages', { ti
     }
   });
   await t.test('exact duplicates and aliases resolving to the same package are deduplicated', async () => {
-    const events = await run('create-extra', [python, python, runtime, 'wasmer/edgejs-quickjs@>=0.1.4,<=0.1.4'], { WASMDBOX_BLOCK_DOWNLOADS: '1' });
+    const events = await run('create-extra', [python, python, runtime, 'wasmer/edgejs-quickjs@>=0.2.5,<=0.2.5'], { WASMDBOX_BLOCK_DOWNLOADS: '1' });
     assert.equal(events.find(event => event.type === 'load').sources.length, 3);
-    assert.deepEqual(events.find(event => event.type === 'sandbox').ids, ['wasmer/edgejs-quickjs@0.1.4', 'python/python@3.13.20']);
+    assert.deepEqual(events.find(event => event.type === 'sandbox').ids, ['wasmer/edgejs-quickjs@0.2.5', 'python/python@3.13.20']);
   });
   await t.test('an unknown package fails preparation and creation without deleting cached packages', async () => {
     const existing = (await readdir(join(cacheDir, 'cache-v1/packages'))).sort();

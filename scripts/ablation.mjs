@@ -26,7 +26,8 @@ const variants = [
   { name: 'no-tcp-patch', groups: ['mounts', 'workerFailures'], probes: ['tcp'], expected: false, failure: /denied guest TCP reached the direct target/ },
   { name: 'no-dns-alias', omit: ['network:dist/node-network.js:3'], probes: ['dns'], expected: false, failure: /ENOTFOUND/ },
   { name: 'no-listener-block', omit: ['network:dist/node-network.js:5'], probes: ['listener'], expected: false, failure: /Missing expected exception/ },
-  { name: 'no-keepalive', probes: ['no-keepalive'], expected: false, failure: /ENOSYS/ },
+  // EdgeJS 0.2.5 passes direct HTTPS fetch without the legacy preload.
+  { name: 'no-keepalive', probes: ['no-keepalive'], expected: true },
   { name: 'no-failure-forwarding', omit: ['workerFailures:dist/node-worker-adapter.js:1'], probes: ['fatal-worker'], expected: false, failure: /SDK failure was not forwarded/ },
 ];
 const selected = process.argv.slice(2);
@@ -40,7 +41,7 @@ for (const variant of variants.filter(value => value.name === 'full' || !selecte
       && (variant.expected || (variant.timeout ? result.timedOut : !result.timedOut && variant.failure.test(result.stderr)));
     results.push({ variant: variant.name, probe, expectedSuccess: variant.expected, matchedExpected, ...result, runtimeEdits: build.edits });
     console.log(`${matchedExpected ? 'PASS' : 'FAIL'} ${variant.name}/${probe}: ${result.success ? 'completed' : result.timedOut ? 'timed out' : 'rejected'}`);
-    await writeFile(join(outputDirectory, 'results.json'), JSON.stringify({ node: process.version, sdk: '0.19.0', runtime: 'wasmer/edgejs-quickjs@=0.1.4', results }, null, 2) + '\n');
+    await writeFile(join(outputDirectory, 'results.json'), JSON.stringify({ node: process.version, sdk: '0.19.0', runtime: 'wasmer/edgejs-quickjs@=0.2.5', results }, null, 2) + '\n');
   }
   if (variant.name === 'full') assert.ok(results.every(result => result.success), 'positive controls must pass before interpreting any ablation failure');
 }

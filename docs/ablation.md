@@ -4,6 +4,16 @@ Removal experiments reduced the initial wrapper's 25 SDK runtime replacements to
 The retained replacements handle host mount integration and cleanup (9), enforced TCP proxying (8), and nested worker failure notifications (2).
 Third-party declaration files are no longer modified, consumer installation does not patch shared dependencies in `node_modules`, and there is no second public RPC networking interface.
 
+## EdgeJS 0.2.5 upgrade
+
+The default runtime and package-loading fixtures now pin `wasmer/edgejs-quickjs@=0.2.5`. The Wasmer SDK stays at 0.19.0, with the same 19 runtime replacements. The package version is unchanged.
+
+The direct-IP HTTPS fetch probe now succeeds without the EdgeJS keepalive preload. Accordingly, `no-keepalive` expects success on 0.2.5; the 0.1.4 `ENOSYS` result below is historical. The preload is retained for this upgrade until the full Node/Bash networking regressions are validated without it. The other SDK patch-removal controls retain their existing expectations.
+
+On 2026-10-12, the upgrade passed the build, type check, and full test suite on macOS with Node.js 24.15.0: 116 tests passed and 4 native Windows tests were skipped. All 17 SDK controls and both public parent-process deadline controls matched their expectations. This is local macOS validation, not a new Linux/Windows CI run.
+
+## Original EdgeJS 0.1.4 validation
+
 Validation used Node.js 24.15.0, `@wasmer/sdk@0.19.0`, and `wasmer/edgejs-quickjs@=0.1.4`.
 The conclusions below apply to the current Node-only API, where each public sandbox owns its worker/client and only the guest accesses mounts.
 They do not promise compatibility with all browser and multi-sandbox APIs in the upstream SDK.
@@ -22,7 +32,7 @@ They do not promise compatibility with all browser and multi-sandbox APIs in the
 | The enforced TCP patch | A reachable local direct-connect target receives a prohibited guest connection, bypassing the denying proxy | Retain |
 | The DNS alias branch | Host DNS resolution of the test domain returns `ENOTFOUND`; the original domain cannot be preserved for the proxy | Retain |
 | The prohibition on guest TCP listeners in proxy mode | The listener call no longer throws | Retain |
-| The EdgeJS keepalive preload | The same real HTTPS fetch changes from success to `ENOSYS` | Keep the shim for the currently pinned 0.1.4; rerun the comparison without the shim after an upgrade before removing it |
+| The EdgeJS keepalive preload | The same real HTTPS fetch changes from success to `ENOSYS` | Keep the shim for the then-pinned 0.1.4; rerun the comparison without the shim after an upgrade before removing it |
 | Nested worker failure forwarding | The SDK logs a real worker failure, but the wrapper's subscriber receives no notification | Retain the minimal module-local hook |
 
 Testing of the final retained code includes 7 positive controls and 10 targeted negative controls, with all 17 outcomes matching expectations.

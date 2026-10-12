@@ -25,7 +25,7 @@ switch (variant) {
   default: throw new Error(`Unknown byte variant: ${variant}`);
 }
 
-const runtime = 'wasmer/edgejs-quickjs@=0.1.4';
+const runtime = 'wasmer/edgejs-quickjs@=0.2.5';
 const extraPkgs = action === 'create-default' ? []
   : variant === 'duplicates' ? [runtime, bytes, runtime, bytes, new Uint8Array(bytes)]
   : [runtime, bytes];
