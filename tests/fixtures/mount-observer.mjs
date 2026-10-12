@@ -47,6 +47,7 @@ if (!isMainThread && workerData?.mode === 'sandbox' && report && target) {
       const operation = `${Class.name}.${method}`;
       record({ type: 'lifecycle', operation, phase: 'start' });
       try { return await original.apply(this, args); }
+      catch (error) { record({ type: 'lifecycle', operation, phase: 'error', message: String(error), stack: error?.stack }); throw error; }
       finally { record({ type: 'lifecycle', operation, phase: 'end' }); }
     };
   }

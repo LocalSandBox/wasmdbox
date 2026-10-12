@@ -25,7 +25,15 @@ test('protected subtrees reject every mutation and ancestor moves without hiding
   assert.equal(fs.readFileSync(join(root,'parent/protected/a'),'utf8'),'original');
   if(process.platform!=='linux') assert.throws(()=>open('PARENT/PROTECTED/new',true,true),{code:'EPERM'});
   // Writes through an existing handle remain valid after an allowed ancestor rename.
-  call('rename','parent/protected-other','sibling');call('write',sibling,0,Buffer.from('OK'));
+  if (process.platform === 'win32') {
+    // Windows forbids renaming a directory while a descendant handle is open.
+    assert.throws(() => call('rename','parent/protected-other','sibling'), { code: 'EPERM' });
+    call('close', sibling);
+    call('rename','parent/protected-other','sibling');
+    const reopened=open('sibling/new',true);call('write',reopened,0,Buffer.from('OK'));
+  } else {
+    call('rename','parent/protected-other','sibling');call('write',sibling,0,Buffer.from('OK'));
+  }
   assert.equal(fs.readFileSync(join(root,'sibling/new'),'utf8'),'OK');
 });
 
