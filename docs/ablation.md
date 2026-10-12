@@ -4,9 +4,17 @@ Removal experiments reduced the initial wrapper's 25 SDK runtime replacements to
 The retained replacements handle host mount integration and cleanup (9), enforced TCP proxying (8), and nested worker failure notifications (2).
 Third-party declaration files are no longer modified, consumer installation does not patch shared dependencies in `node_modules`, and there is no second public RPC networking interface.
 
+## Wasmer SDK 0.19.1 upgrade
+
+The current SDK is pinned to 0.19.1, with EdgeJS 0.2.5 and no keepalive preload. The project's own version remains 0.1.2. The SDK patch files, build imports, pristine-source fallback, and ablation reports now refer to 0.19.1.
+
+The integrity manifest was regenerated from the official npm archive after checking its SHA512 against npm metadata. It covers 66 upstream files, including the new host-timer JS snippet and the Acorn license alongside the existing runtime files. All 19 exact replacement anchors remain valid; the mount, proxy, and worker-failure patch bodies are unchanged. The older validation records below retain their original versions.
+
+A focused Node.js 24.15.0 probe also checked the upstream network-callback cleanup fix: after one warmup client, 20 create/ready/close cycles increased function references in the original 0.19.0 WASM externref table from 2 to 22. The bundled, patched 0.19.1 SDK stayed at 1 after every close. This measures retained callback references, not total process memory.
+
 ## EdgeJS 0.2.5 upgrade
 
-The default runtime and package-loading fixtures now pin `wasmer/edgejs-quickjs@=0.2.5`. The Wasmer SDK stays at 0.19.0, with the same 19 runtime replacements. The package version is unchanged.
+The EdgeJS upgrade pinned the default runtime and package-loading fixtures to `wasmer/edgejs-quickjs@=0.2.5`. That commit kept the Wasmer SDK at 0.19.0, with the same 19 runtime replacements and no package version bump.
 
 The direct-IP HTTPS fetch probe now succeeds without the EdgeJS keepalive preload. The initial upgrade changed `no-keepalive` to expect success on 0.2.5 and retained the preload pending broader validation. The 0.1.4 `ENOSYS` result below is historical. The other SDK patch-removal controls retain their existing expectations.
 

@@ -1,7 +1,7 @@
 {
   "name": "@wasmer/sdk",
-  "version": "0.19.0",
-  "integrity": "sha512-4gdWiIlne8ti3dQl1yD6jrLLNKrQXmZXA6iy6ta/6sgYpixPLwymeGqhMzjAIHqhmwrD+SjPFpZ5ugd9SytDrQ==",
+  "version": "0.19.1",
+  "integrity": "sha512-wAfPud0PkSV2dFaliehEidslpz4iZBWfvVfBOrKnS6erdN3pj2kSUCtRqekMyMOMzLntVog6ZrCzBKd3ks1E7g==",
   "files": {
     "LICENSE": "6350e730ed61a3ec83b5843634aa0a476505ec9b96792600606ced736835b45c",
     "dist/browser-worker.d.ts": "82ee39e5dcb3103ae6c164fcee90a83c7e769fb096fbea7f6bec2e02866af5ee",
@@ -60,12 +60,14 @@
     "dist/wisp-network.d.ts.map": "12d422808539271b1f85c8f07cacd4ba5baaa4975c43ba123e5883680a278ae4",
     "dist/wisp-network.js": "0de4453b159a56db49dffd282bb04efb5fcd6a852db7b7c19d91fe6a9a17e065",
     "dist/wisp-network.js.map": "08fc26044e163bbedc39a702223446363b05f6bcfa375f4e35fd1a6f89aed527",
-    "package.json": "19570be326d74717571202df1a0b8998d991e07e5bafb77655eca78bdc99cf24",
+    "package.json": "3df43ea2985b66a7962e3320dabe4c8a84eb78e724de9e01a0f0f0af787c5603",
+    "pkg/snippets/wasmer-napi-4dc421676e010b84/acorn.LICENSE": "76a876cf886ff9be2a8b5e2e86514fed06223c8c9f0c1e9ee9606e93841e00b7",
     "pkg/snippets/wasmer-napi-4dc421676e010b84/acorn.mjs": "953573b8fdab71599749ea5f2b33d3e760c2116178f9423ee7458dbe39d59453",
-    "pkg/snippets/wasmer-napi-4dc421676e010b84/inline0.js": "48c7a6cac12969f2ba57651693cea6fa4bd19d6cc00ec283bf6d3166bbe76036",
-    "pkg/wasmer_sdk_js.d.ts": "0ce67cbb2ecdf802a0c7160accf8275d3f76f26de7dfedb161cfe957e110edad",
-    "pkg/wasmer_sdk_js.js": "b8f330f47fcbc48541af65985b2db63116f220231a3225e9ec347c5f74dcfa35",
-    "pkg/wasmer_sdk_js_bg.wasm": "86aefc8940d29045f94646421bec6fac528a736aa4e78718fdb7924897ee4c25",
-    "pkg/wasmer_sdk_js_bg.wasm.d.ts": "79e30641df1e380b09a287456b669a850195da05aca4219ed3cd4ac4e3a80f0c"
+    "pkg/snippets/wasmer-napi-4dc421676e010b84/inline0.js": "3961a3111b8330d5dc37942bb7500a18e868e81ba00640c63dc9682c9e6db42b",
+    "pkg/snippets/wasmer-sdk-js-cdffbd7559c8ace2/inline0.js": "0ac911b005621804591d4171545651adf5826b71206d3c3cfe3e4fc3b987c190",
+    "pkg/wasmer_sdk_js.d.ts": "6db225fba3844d4fcbfdf497a28c1e6ed6ea32eaab568e049204557181175724",
+    "pkg/wasmer_sdk_js.js": "b1bd9657c8125bd6366e30b31628875d9859d207f57e28f4be9d35d2865994dd",
+    "pkg/wasmer_sdk_js_bg.wasm": "4935fe09e581c3c6d4da4e547125d828ba4bcfb7a9587da1b86f2f9e5ba1a9d4",
+    "pkg/wasmer_sdk_js_bg.wasm.d.ts": "e2f7acdcb01e0c7a2d8e2356206fbbb26ff930447cf2dded458517f336a5be7d"
   }
 }

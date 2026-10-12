@@ -1,4 +1,4 @@
-// Node adapter for the experimental HostFileSystem ABI in @wasmer/sdk 0.19.0.
+// Node adapter for the experimental HostFileSystem ABI in @wasmer/sdk 0.19.1.
 // The build copies this compiled module into the private SDK distribution.
 import * as fs from 'node:fs';
 import { isAbsolute, join, posix, sep } from 'node:path';

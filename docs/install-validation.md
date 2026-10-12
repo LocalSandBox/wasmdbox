@@ -9,7 +9,7 @@ The host entry point is [examples/package-install/main.js](../examples/package-i
 
 1. The host creates `.artifacts/package-install/` and seeds its `package.json` from this example's fixture only if it does not already exist.
 2. The installer sandbox maps that directory to `/mounted` with a writable mount and enables networking with `network: { allow: ['registry.npmjs.org'] }`. Only the guest probe script is imported through `files`.
-3. Guest pnpm runs `pnpm --dir=/mounted add is-number@7.0.0 --save-exact --ignore-scripts`. It downloads the package from npm and writes the project manifest, lockfile, and `node_modules` directly into the host mount. Command startup keeps `cwd: '/workspace'`; SDK 0.19.0 cannot initialize the WASI environment with this host mount as the command's `cwd`, so pnpm selects its project directory with `--dir`.
+3. Guest pnpm runs `pnpm --dir=/mounted add is-number@7.0.0 --save-exact --ignore-scripts`. It downloads the package from npm and writes the project manifest, lockfile, and `node_modules` directly into the host mount. Command startup keeps `cwd: '/workspace'`; SDK 0.19.0 could not initialize the WASI environment with this host mount as the command's `cwd`, so the example continues to select pnpm's project directory with `--dir`.
 4. The installer sandbox is closed. The host reads the saved package metadata and entry file to verify they still exist.
 5. A new sandbox mounts the same directory read-only with guest networking disabled. Its guest process loads `/mounted/node_modules/is-number`, verifies the version and results for numeric and nonnumeric inputs, and reports the resolved file path.
 6. The verifier sandbox is closed. The example keeps the host installation for later use.

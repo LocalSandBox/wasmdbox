@@ -2,13 +2,13 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { replacements as mounts } from '../patches/wasmer-sdk-0.19.0.mjs';
-import { replacements as network } from '../patches/wasmer-sdk-network-0.19.0.mjs';
-import { replacements as workerFailures } from '../patches/wasmer-sdk-worker-failures-0.19.0.mjs';
+import { replacements as mounts } from '../patches/wasmer-sdk-0.19.1.mjs';
+import { replacements as network } from '../patches/wasmer-sdk-network-0.19.1.mjs';
+import { replacements as workerFailures } from '../patches/wasmer-sdk-worker-failures-0.19.1.mjs';
 
 export const projectRoot = fileURLToPath(new URL('../', import.meta.url));
 export const patchGroups = { mounts, network, workerFailures };
-const manifest = JSON.parse(await readFile(new URL('../patches/wasmer-sdk-0.19.0.integrity.json', import.meta.url), 'utf8'));
+const manifest = JSON.parse(await readFile(new URL('../patches/wasmer-sdk-0.19.1.integrity.json', import.meta.url), 'utf8'));
 
 /** Read only a byte-verified upstream package, never an already patched SDK. */
 async function pristineSdk() {
@@ -16,7 +16,7 @@ async function pristineSdk() {
     ? [resolve(process.env.WASMDBOX_SDK_SOURCE)]
     : [
         dirname(dirname(fileURLToPath(import.meta.resolve('@wasmer/sdk/node')))),
-        join(projectRoot, '.artifacts/upstream/wasmer-sdk-0.19.0/package'),
+        join(projectRoot, '.artifacts/upstream/wasmer-sdk-0.19.1/package'),
       ];
   const errors = [];
   for (const directory of candidates) {
@@ -32,7 +32,7 @@ async function pristineSdk() {
       return { directory, files };
     } catch (error) { errors.push(`${directory}: ${error.message}`); }
   }
-  throw new Error(`A clean @wasmer/sdk@0.19.0 is required. Run npm ci --ignore-scripts, or set WASMDBOX_SDK_SOURCE to an extracted pristine package.\n${errors.join('\n')}`);
+  throw new Error(`A clean @wasmer/sdk@0.19.1 is required. Run npm ci --ignore-scripts, or set WASMDBOX_SDK_SOURCE to an extracted pristine package.\n${errors.join('\n')}`);
 }
 
 /** Build an isolated variant. This function never writes to node_modules. */
