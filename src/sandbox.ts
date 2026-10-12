@@ -349,7 +349,8 @@ function validateExtraPkgs(packages: PrepareOptions['extraPkgs']) {
 }
 function validResult(result: CommandResult): boolean {
   return !!result && Number.isInteger(result.exitCode) && typeof result.stdout === 'string' && typeof result.stderr === 'string'
-    && typeof result.stdoutTruncated === 'boolean' && typeof result.stderrTruncated === 'boolean';
+    && typeof result.stdoutTruncated === 'boolean' && typeof result.stderrTruncated === 'boolean'
+    && (result.hostEntriesOmitted === undefined || (Number.isSafeInteger(result.hostEntriesOmitted) && result.hostEntriesOmitted >= 0));
 }
 function validMessage(input: unknown): input is WorkerMessage {
   if (!input || typeof input !== 'object' || !('type' in input)) return false;

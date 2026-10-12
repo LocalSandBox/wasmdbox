@@ -9,6 +9,8 @@ export interface HostDirectoryMount {
   hostPath: string;
   guestPath: string;
   readOnly?: boolean;
+  /** Mount-relative subtrees that remain readable but cannot be mutated. */
+  denyWritePaths?: string[];
 }
 
 export interface RegisteredHostMount {
@@ -24,6 +26,7 @@ export interface HostMountLease {
 
 interface HostFileHandle {
   fd: number;
+  path: string;
   read: boolean;
   write: boolean;
   append: boolean;
@@ -95,8 +98,16 @@ function validateMounts(configs: readonly HostDirectoryMount[]) {
     if (config.readOnly !== undefined && typeof config.readOnly !== 'boolean') {
       throw error('EINVAL', 'readOnly must be a boolean');
     }
+    if (config.denyWritePaths !== undefined && !Array.isArray(config.denyWritePaths)) {
+      throw error('EINVAL', 'denyWritePaths must be an array');
+    }
+    const denyWritePaths = (config.denyWritePaths ?? []).map((path: string) => {
+      const parts = hostRelativePathParts(path, process.platform === 'win32');
+      if (!parts.length || parts.join('/') !== path) throw error('EINVAL', 'denyWritePaths must contain normalized nonempty relative paths');
+      return path;
+    });
     destinations.push(guestPath);
-    return { hostPath, guestPath, readOnly: config.readOnly ?? false };
+    return { hostPath, guestPath, readOnly: config.readOnly ?? false, denyWritePaths };
   });
 }
 
@@ -120,7 +131,7 @@ export function registerHostMounts(owner: object, configs: readonly HostDirector
   try {
     for (const config of validated) {
       if (nextMount > MAX_U32) throw error('EMFILE', 'Host mount IDs exhausted');
-      const provider = new DirectoryFileSystem(config.hostPath, config.readOnly);
+      const provider = new DirectoryFileSystem(config.hostPath, config.readOnly, config.denyWritePaths);
       const id = nextMount++;
       mounts.set(id, provider);
       registered.push({ id, guestPath: config.guestPath, readOnly: config.readOnly });
@@ -158,6 +169,11 @@ export function hostFileSystemStats() {
   };
 }
 
+/** One sandbox owns this adapter instance; no host paths leave the worker. */
+export function hostFileSystemEntriesOmitted(): number {
+  return [...mounts.values()].reduce((sum, provider) => sum + provider.entriesOmitted, 0);
+}
+
 const arities = new Map(Object.entries({
   stat: 1, readDir: 1, open: 7, mkdir: 1, remove: 1, rename: 2, sync: 0,
   setTimes: 3, fileStat: 1, setFileTimes: 3, read: 3, write: 3,
@@ -168,11 +184,13 @@ class DirectoryFileSystem {
   #root: string;
   #identity: fs.BigIntStats;
   #readOnly: boolean;
+  #denyWritePaths: string[];
+  entriesOmitted = 0;
   #handles = new Map<number, HostFileHandle>();
   #nextHandle = 1;
   #windows = process.platform === 'win32';
 
-  constructor(root: string, readOnly: boolean) {
+  constructor(root: string, readOnly: boolean, denyWritePaths: string[]) {
     if (!['darwin', 'linux', 'win32'].includes(process.platform) || (!this.#windows && !fs.constants.O_NOFOLLOW)) {
       throw error('ENOTSUP', 'This host mount adapter supports macOS, Linux and Windows');
     }
@@ -180,6 +198,7 @@ class DirectoryFileSystem {
     this.#identity = fs.lstatSync(this.#root, { bigint: true });
     if (!this.#identity.isDirectory()) throw error('ENOTDIR', 'hostPath must be a directory');
     this.#readOnly = readOnly;
+    this.#denyWritePaths = denyWritePaths.map(path => this.#fold(path));
   }
 
   get handleCount() { return this.#handles.size; }
@@ -191,8 +210,17 @@ class DirectoryFileSystem {
     }
   }
 
-  #writable() {
+  #fold(path: string) {
+    return process.platform === 'darwin' || this.#windows ? path.toLowerCase() : path;
+  }
+
+  #writable(relative: unknown, includeChildren = false) {
     if (this.#readOnly) throw error('EPERM', 'Host mount is read-only');
+    const path = this.#fold(hostRelativePathParts(relative, this.#windows).join('/'));
+    if (this.#denyWritePaths.some(denied => path === denied || path.startsWith(denied + '/') ||
+        (includeChildren && (path === '' || denied.startsWith(path + '/'))))) {
+      throw error('EPERM', 'Host path is protected from writes');
+    }
   }
 
   #regular(stats: fs.BigIntStats): fs.BigIntStats {
@@ -250,7 +278,7 @@ class DirectoryFileSystem {
     if (!file) throw error('EBADF', 'Unknown or closed file handle');
     this.#regular(fs.fstatSync(file.fd, { bigint: true }));
     if (write) {
-      this.#writable();
+      this.#writable(file.path);
       if (!file.write) throw error('EPERM', 'File handle is not writable');
     }
     return file;
@@ -279,16 +307,23 @@ class DirectoryFileSystem {
       case 'stat': return this.#metadata(fs.lstatSync(this.#path(args[0]), { bigint: true }));
       case 'readDir': {
         const directory = this.#path(args[0]);
-        return fs.readdirSync(directory).map((name) => ({
-          name, ...this.#metadata(fs.lstatSync(this.#path(posix.join(args[0] as string, name)), { bigint: true })),
-        }));
+        const entries = [];
+        for (const name of fs.readdirSync(directory)) {
+          const stats = fs.lstatSync(join(directory, name), { bigint: true });
+          if (stats.isSymbolicLink() || (!stats.isDirectory() && !stats.isFile()) || (stats.isFile() && stats.nlink > 1n)) {
+            this.entriesOmitted++;
+            continue;
+          }
+          entries.push({ name, ...this.#metadata(stats) });
+        }
+        return entries;
       }
       case 'open': {
         const [name, read, write, create, exclusive, truncate, append] = args as [unknown, boolean, boolean, boolean, boolean, boolean, boolean];
         const effectiveWrite = write || append;
         if (args.slice(1).some((value) => typeof value !== 'boolean') || (!read && !effectiveWrite) ||
             (!effectiveWrite && (create || exclusive || truncate))) throw error('EINVAL', 'Invalid open flags');
-        if (effectiveWrite) this.#writable();
+        if (effectiveWrite) this.#writable(name);
         const path = this.#path(name, create || exclusive);
         const before = this.#windows ? fs.lstatSync(path, { bigint: true, throwIfNoEntry: false }) : undefined;
         if (before) {
@@ -323,7 +358,7 @@ class DirectoryFileSystem {
           if (this.#nextHandle > MAX_U32) throw error('EMFILE', 'File handle IDs exhausted');
           if (truncate) fs.ftruncateSync(fd, 0);
           const id = this.#nextHandle++;
-          this.#handles.set(id, { fd, read, write: effectiveWrite, append });
+          this.#handles.set(id, { fd, path: hostRelativePathParts(name, this.#windows).join('/'), read, write: effectiveWrite, append });
           return id;
         } catch (failure) { fs.closeSync(fd); throw failure; }
       }
@@ -353,23 +388,29 @@ class DirectoryFileSystem {
         if (file) fs.closeSync(file.fd); // Rust may close explicitly and again on Drop.
         return null;
       }
-      case 'mkdir': this.#writable(); fs.mkdirSync(this.#path(args[0], true)); return null;
+      case 'mkdir': this.#writable(args[0]); fs.mkdirSync(this.#path(args[0], true)); return null;
       case 'remove': {
-        this.#writable();
+        this.#writable(args[0], true);
         const path = this.#notRoot(this.#path(args[0]));
         if (fs.lstatSync(path).isDirectory()) fs.rmdirSync(path);
         else fs.unlinkSync(path);
         return null;
       }
       case 'rename': {
-        this.#writable();
+        this.#writable(args[0], true);
+        this.#writable(args[1], true);
         const from = this.#notRoot(this.#path(args[0]));
         const to = this.#notRoot(this.#path(args[1], true));
         fs.renameSync(from, to);
+        const source = hostRelativePathParts(args[0], this.#windows).join('/');
+        const destination = hostRelativePathParts(args[1], this.#windows).join('/');
+        for (const file of this.#handles.values()) {
+          if (file.path === source || file.path.startsWith(source + '/')) file.path = destination + file.path.slice(source.length);
+        }
         return null;
       }
       case 'setTimes': {
-        this.#writable();
+        this.#writable(args[0]);
         const path = this.#path(args[0]);
         const stats = fs.lstatSync(path, { bigint: true });
         fs.utimesSync(path, this.#seconds(args[1], stats.atimeNs), this.#seconds(args[2], stats.mtimeNs));

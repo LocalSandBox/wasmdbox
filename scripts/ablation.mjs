@@ -10,7 +10,7 @@ const adapterDirectory = join(outputDirectory, 'compiled-adapters');
 await new Promise((resolve, reject) => {
   const child = spawn(process.execPath, [
     join(projectRoot, 'node_modules/typescript/bin/tsc'),
-    'src/internal/node-host-filesystem.ts', 'src/internal/node-tcp-proxy.ts',
+    'src/internal/node-host-filesystem.ts', 'src/internal/node-tcp-proxy.ts', 'src/internal/host-filesystem.ts',
     '--target', 'ES2023', '--module', 'NodeNext', '--moduleResolution', 'NodeNext',
     '--strict', '--skipLibCheck', '--types', 'node', '--outDir', adapterDirectory,
   ], { cwd: projectRoot, stdio: 'inherit' });

@@ -7,6 +7,8 @@ export interface HostMount {
   hostPath: string;
   guestPath: string;
   readOnly?: boolean;
+  /** Mount-relative subtrees that remain readable but cannot be mutated. */
+  denyWritePaths?: string[];
 }
 
 export interface PrepareOptions {
@@ -47,6 +49,8 @@ export interface SpawnOptions extends CommandOptions {
 }
 
 export interface CommandResult {
+  /** Cumulative omitted directory entries in this sandbox; repeated scans count again. */
+  hostEntriesOmitted?: number;
   exitCode: number;
   stdout: string;
   stderr: string;

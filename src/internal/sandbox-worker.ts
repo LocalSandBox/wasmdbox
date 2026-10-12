@@ -19,6 +19,7 @@ type RunningCommand = { process?: WasmerProcess; cancelled: boolean; task?: Prom
 const running = new Map<number, RunningCommand>();
 let baseEnv: Record<string, string> = {};
 let caBundle = false;
+let hostEntriesOmitted = () => 0;
 
 function send(message: WorkerMessage) { port.postMessage(message); }
 function fatal(code: SandboxErrorCode, message: string) {
@@ -37,6 +38,8 @@ async function initialize() {
     unsubscribe = adapter.subscribeWorkerFailures(() => fatal('WORKER_FAILED', 'Wasmer runtime worker failed'));
     const sdkURL = new URL('../vendor/wasmer-sdk/dist/node.js', import.meta.url);
     const sdk = await import(sdkURL.href) as typeof import('@wasmer/sdk/node');
+    const hostAdapter = await import(new URL('../vendor/wasmer-sdk/dist/node-host-filesystem.js', import.meta.url).href);
+    hostEntriesOmitted = hostAdapter.hostFileSystemEntriesOmitted;
     const files = { ...options.files };
     for (const [path, contents] of Object.entries(files)) {
       if (!path.startsWith('/workspace/') || path.includes('\0') || path.includes('\\') || path.split('/').includes('..')
@@ -136,6 +139,7 @@ async function run(id: number, argv: string[], settings: WireCommandOptions) {
       if (failed || closing) return;
       const result = {
         exitCode: output.exitCode,
+        ...(hostEntriesOmitted() ? { hostEntriesOmitted: hostEntriesOmitted() } : {}),
         stdout: output.stdout.text(), stderr: output.stderr.text(),
         stdoutTruncated: output.stdout.truncated, stderrTruncated: output.stderr.truncated,
       };

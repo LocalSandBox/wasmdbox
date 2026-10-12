@@ -243,7 +243,7 @@ test('rejects final and intermediate symlinks before reading or truncating targe
     assert.throws(() => call('remove', path), { code: 'EPERM' });
   }
   assert.throws(() => open(call, 'directory-link/new.txt', { write: true, create: true }), { code: 'EPERM' });
-  assert.throws(() => call('readDir', ''), { code: 'EPERM' });
+  assert.deepEqual(call('readDir', ''), []);
   assert.equal(fs.readFileSync(target, 'utf8'), 'keep secret');
   assert.equal(fs.existsSync(join(directory, 'outside/new.txt')), false);
 });

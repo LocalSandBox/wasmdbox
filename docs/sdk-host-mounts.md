@@ -47,3 +47,11 @@ The adapter canonicalizes the selected root and rejects symbolic links and junct
 Windows does not provide Node's `O_NOFOLLOW` protection. The adapter checks components and canonical paths, then compares file identities before and after opening, before any truncation or guest data access. Creating a previously absent file uses exclusive creation; a concurrent creator can cause `EEXIST`, which the caller can retry. These checks are not atomic against another host process deliberately replacing directories between checks and I/O; this race limitation also exists for intermediate directories in the POSIX adapter.
 
 Append writes use native append handles. On Windows, truncation through an append handle may fail because that handle lacks the necessary write access; open a normal writable handle to resize a file. Host ACLs, file sharing restrictions, and filesystem errors remain effective. The adapter does not modify ACLs or emulate full POSIX permissions.
+
+## Read-write workfolders (0.2.0)
+
+`denyWritePaths: [".seawork"]` protects mount-relative subtrees while leaving them readable. The policy checks path components, all write APIs and handles, and moves of ancestors. macOS and Windows comparisons are case-insensitive. Existing external host mutation remains outside this adapter's concurrency guarantees.
+
+Directory enumeration now skips symlinks, hard-linked files and special files; direct access still fails. `CommandResult.hostEntriesOmitted` is an optional cumulative count of skipped entries across the sandbox lifetime (repeated enumerations count again). A successful listing or search is not proof of complete results or compatibility with host node_modules/venv layouts.
+
+Only oversized readDir responses retry with a larger buffer, up to 32 MiB. Oversized mutating RPC responses never retry. Private /workspace remains SDK storage; mount user files at /workfolder and launch commands there through a guest bootstrap.

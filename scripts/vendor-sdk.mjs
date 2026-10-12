@@ -69,7 +69,7 @@ export async function materializeSdk({
   }
   // Validate and prepare everything before replacing the generated destination.
   if (adapters) {
-    for (const name of ['node-host-filesystem', 'node-tcp-proxy']) {
+    for (const name of ['node-host-filesystem', 'node-tcp-proxy', 'host-filesystem']) {
       files.set(`dist/${name}.js`, await readFile(join(adapterDirectory, `${name}.js`)));
     }
   }

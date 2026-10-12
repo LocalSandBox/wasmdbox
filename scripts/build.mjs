@@ -15,7 +15,7 @@ await new Promise((resolve, reject) => {
   child.once('error', reject);
   child.once('exit', (code, signal) => code === 0 ? resolve() : reject(new Error(`TypeScript build failed (${signal ?? code})`)));
 });
-for (const name of ['node-host-filesystem', 'node-tcp-proxy']) {
+for (const name of ['node-host-filesystem', 'node-tcp-proxy', 'host-filesystem']) {
   const source = await readFile(join(projectRoot, `dist/internal/${name}.js`), 'utf8');
   await writeFile(join(sdk.destination, `dist/${name}.js`), source.replace(/\n\/\/# sourceMappingURL=.*(?:\n|$)/g, '\n'));
 }
