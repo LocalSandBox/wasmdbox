@@ -26,8 +26,6 @@ const variants = [
   { name: 'no-tcp-patch', groups: ['mounts', 'workerFailures'], probes: ['tcp'], expected: false, failure: /denied guest TCP reached the direct target/ },
   { name: 'no-dns-alias', omit: ['network:dist/node-network.js:3'], probes: ['dns'], expected: false, failure: /ENOTFOUND/ },
   { name: 'no-listener-block', omit: ['network:dist/node-network.js:5'], probes: ['listener'], expected: false, failure: /Missing expected exception/ },
-  // EdgeJS 0.2.5 passes direct HTTPS fetch without the legacy preload.
-  { name: 'no-keepalive', probes: ['no-keepalive'], expected: true },
   { name: 'no-failure-forwarding', omit: ['workerFailures:dist/node-worker-adapter.js:1'], probes: ['fatal-worker'], expected: false, failure: /SDK failure was not forwarded/ },
 ];
 const selected = process.argv.slice(2);

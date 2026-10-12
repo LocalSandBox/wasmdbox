@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { materializeSdk, projectRoot } from './vendor-sdk.mjs';
 
@@ -19,6 +19,4 @@ for (const name of ['node-host-filesystem', 'node-tcp-proxy']) {
   const source = await readFile(join(projectRoot, `dist/internal/${name}.js`), 'utf8');
   await writeFile(join(sdk.destination, `dist/${name}.js`), source.replace(/\n\/\/# sourceMappingURL=.*(?:\n|$)/g, '\n'));
 }
-await mkdir(join(projectRoot, 'dist/assets'), { recursive: true });
-await copyFile(join(projectRoot, 'assets/edgejs-keepalive.cjs'), join(projectRoot, 'dist/assets/edgejs-keepalive.cjs'));
 console.log(`Built wasmdbox with private Wasmer SDK ${sdk.sdk} (${sdk.edits} runtime edits); dependencies were not modified`);

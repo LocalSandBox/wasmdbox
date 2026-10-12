@@ -244,7 +244,7 @@ For local services or a private CA, configure `network.dns` (domains mapped to I
 
 The [standalone example index](examples/README.md) covers file isolation, disabled networking, secret substitution, mounts, error classification, and streaming commands. Each example demonstrates complete public SDK usage, keeps guest code in a separate file, and has its own fixtures.
 
-The project pins `@wasmer/sdk@0.19.0`. The build adds the required mount, proxy, and failure-observation support only to the private SDK copy inside the package. EdgeJS 0.2.5 passes the direct-IP HTTPS fetch probe without the legacy keepalive preload; the preload remains until the full Node/Bash networking regressions also pass without it. Dependency upgrades require another round of regression tests without patches and ablation checks.
+The project pins `@wasmer/sdk@0.19.0`. The build adds the required mount, proxy, and failure-observation support only to the private SDK copy inside the package. EdgeJS 0.2.5 uses its native keepalive implementation; wasmdbox no longer injects a keepalive preload into `NODE_OPTIONS`. Dependency upgrades require another round of regression tests without patches and ablation checks.
 
 ## License
 

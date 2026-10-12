@@ -1,5 +1,4 @@
 import { parentPort, workerData } from 'node:worker_threads';
-import { readFile } from 'node:fs/promises';
 import type { Wasmer, Sandbox as WasmerSandbox, Process as WasmerProcess } from '@wasmer/sdk/node';
 import { startProxy } from './proxy.js';
 import { deferred, type ParentMessage, type WorkerMessage, type WorkerOptions, type WireCommandOptions } from './protocol.js';
@@ -9,7 +8,6 @@ const port = parentPort!;
 const options = workerData as WorkerOptions;
 const DEFAULT_RUNTIME = 'wasmer/edgejs-quickjs@=0.2.5';
 const INTERNAL = '/workspace/.wasmdbox';
-const COMPAT = `${INTERNAL}/edgejs-keepalive.cjs`;
 const CA = `${INTERNAL}/ca.pem`;
 let client: Wasmer | undefined;
 let sandbox: WasmerSandbox | undefined;
@@ -59,7 +57,6 @@ async function initialize() {
     const packages = [...new Map(loaded.map(pkg => [pkg.id, pkg])).values()];
     if (failed) return;
     if (options.mode === 'prepare') { send({ type: 'ready' }); return; }
-    files[COMPAT] = await readFile(new URL('../assets/edgejs-keepalive.cjs', import.meta.url));
     const certificates = [...(network ? network.caCerts ?? [] : []), ...(proxy?.caCert ? [proxy.caCert] : [])];
     const extraCAPath = options.env?.NODE_EXTRA_CA_CERTS;
     if (extraCAPath && certificates.length) {
@@ -94,9 +91,6 @@ function diagnostic(error: unknown): string {
 function commandEnv(override: Readonly<Record<string, string>> = {}) {
   const env = { ...baseEnv, ...override, ...proxy?.env };
   if (caBundle) env.NODE_EXTRA_CA_CERTS = CA;
-  // TODO(edgejs-keepalive): remove the preload after the fixed upstream release
-  // passes the direct-IP fetch and Node/Bash keepalive ablation regressions.
-  env.NODE_OPTIONS = `${env.NODE_OPTIONS ?? ''} --require=${COMPAT}`.trim();
   return env;
 }
 

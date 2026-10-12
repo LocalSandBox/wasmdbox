@@ -17,7 +17,7 @@ if (probe === 'mount' || probe === 'mount-failure') await mountProbe();
 else if (probe === 'tcp') await tcpProbe();
 else if (probe === 'dns') await dnsProbe();
 else if (probe === 'listener') await listenerProbe();
-else if (probe === 'keepalive' || probe === 'no-keepalive') await keepaliveProbe();
+else if (probe === 'keepalive') await keepaliveProbe();
 else if (probe === 'fatal-worker') await fatalWorkerProbe();
 else throw new Error(`Unknown ablation probe: ${probe}`);
 console.log(JSON.stringify({ probe, passed: true }));
@@ -163,14 +163,14 @@ async function keepaliveProbe() {
       env: { NODE_EXTRA_CA_CERTS: '/workspace/ca.pem', URL: `https://127.0.0.1:${server.address().port}/` },
       files: {
         '/workspace/ca.pem': certificate.cert,
-        '/workspace/compat.cjs': await readFile(join(projectRoot, 'assets/edgejs-keepalive.cjs')),
         '/workspace/probe.cjs': `fetch(process.env.URL).then(r => r.text()).then(console.log).catch(e => { console.log(e.cause?.code || e.cause?.message || e.message); process.exitCode = 1; });`,
       },
     });
-    const args = [...(probe === 'keepalive' ? ['--require', '/workspace/compat.cjs'] : []), '/workspace/probe.cjs'];
-    const result = await sandbox.command('node', args).run({ timeoutMs: 8_000, check: false });
-    assert.equal(result.stdout.text().trim(), 'fetch-ok', `native fetch result: ${result.stdout.text().trim()}`);
-    assert.equal(result.exitCode, 0);
+    for (const [command, args] of [['node', ['/workspace/probe.cjs']], ['bash', ['-c', 'node /workspace/probe.cjs']]]) {
+      const result = await sandbox.command(command, args).run({ timeoutMs: 8_000, check: false });
+      assert.equal(result.stdout.text().trim(), 'fetch-ok', `${command} native fetch result: ${result.stdout.text().trim()}`);
+      assert.equal(result.exitCode, 0);
+    }
   } finally {
     await sandbox?.close(); await wasmer.close();
     server.closeAllConnections(); await close(server);

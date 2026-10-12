@@ -18,11 +18,12 @@ try {
   assert.equal(packed.length, 1);
   const archive = join(temporary, packed[0].filename);
   const included = new Set(packed[0].files.map(file => file.path));
-  for (const path of ['LICENSE', 'dist/index.js', 'dist/index.d.ts', 'dist/internal/sandbox-worker.js', 'dist/assets/edgejs-keepalive.cjs', 'dist/vendor/wasmer-sdk/LICENSE', 'examples/local-package/hello.webc']) {
+  for (const path of ['LICENSE', 'dist/index.js', 'dist/index.d.ts', 'dist/internal/sandbox-worker.js', 'dist/vendor/wasmer-sdk/LICENSE', 'examples/local-package/hello.webc']) {
     assert.ok(included.has(path), `missing package file: ${path}`);
   }
   assert.ok([...included].some(path => path.startsWith('dist/vendor/wasmer-sdk/') && path.endsWith('.wasm')));
   assert.ok(![...included].some(path => path.startsWith('node_modules/')));
+  assert.ok(!included.has('dist/assets/edgejs-keepalive.cjs'), 'legacy keepalive preload must not be shipped');
   await mkdir(consumer);
   await writeFile(join(consumer, 'package.json'), JSON.stringify({ name: 'wasmdbox-external-consumer', private: true, type: 'module' }));
   await cp(new URL('../tests/fixtures/package-consumer/', import.meta.url), consumer, { recursive: true });

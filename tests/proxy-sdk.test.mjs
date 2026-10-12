@@ -94,7 +94,7 @@ test('public Sandbox real WASM: Node/Bash fetch, scoped secrets, TCP, DNS and po
   const fetchConfig = { action: 'fetch', url: `https://api.test:${httpsPort}/demo` };
   let firstToken;
 
-  await t.test('native fetch receives automatic trust and preload for direct Node and Bash child Node', async () => {
+  await t.test('native fetch receives automatic trust for direct Node and Bash child Node', async () => {
     for (const bash of [false, true]) {
       const result = await run(sandbox, fetchConfig, { bash });
       assert.equal(result.status, 200);

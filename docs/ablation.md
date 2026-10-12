@@ -8,9 +8,15 @@ Third-party declaration files are no longer modified, consumer installation does
 
 The default runtime and package-loading fixtures now pin `wasmer/edgejs-quickjs@=0.2.5`. The Wasmer SDK stays at 0.19.0, with the same 19 runtime replacements. The package version is unchanged.
 
-The direct-IP HTTPS fetch probe now succeeds without the EdgeJS keepalive preload. Accordingly, `no-keepalive` expects success on 0.2.5; the 0.1.4 `ENOSYS` result below is historical. The preload is retained for this upgrade until the full Node/Bash networking regressions are validated without it. The other SDK patch-removal controls retain their existing expectations.
+The direct-IP HTTPS fetch probe now succeeds without the EdgeJS keepalive preload. The initial upgrade changed `no-keepalive` to expect success on 0.2.5 and retained the preload pending broader validation. The 0.1.4 `ENOSYS` result below is historical. The other SDK patch-removal controls retain their existing expectations.
 
 On 2026-10-12, the upgrade passed the build, type check, and full test suite on macOS with Node.js 24.15.0: 116 tests passed and 4 native Windows tests were skipped. All 17 SDK controls and both public parent-process deadline controls matched their expectations. This is local macOS validation, not a new Linux/Windows CI run.
+
+## Keepalive preload removal
+
+A separate follow-up removes the preload after an isolated copy with no compatibility script or `NODE_OPTIONS` injection passed all 11 real-WASM networking tests. These cover direct Node and Bash child Node HTTPS, proxy trust, scoped credentials, redirects, IPv4/IPv6 sockets, keepalive before/during/after connection, repeated calls, failed-connect listener cleanup, and network policy enforcement. A fresh pnpm installation into a writable host mount also passed, followed by loading that package from a new read-only, network-disabled sandbox.
+
+The build and package verifier no longer require or ship the compatibility script. The `keepalive` positive control now exercises native direct-IP HTTPS through both Node and Bash. The redundant `no-keepalive` variant is removed, leaving 16 SDK controls; the 19 Wasmer SDK replacements remain unchanged.
 
 ## Original EdgeJS 0.1.4 validation
 
