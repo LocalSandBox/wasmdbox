@@ -125,3 +125,14 @@ Two public API controls in `tests/prepare.test.mjs` verify that the operations r
 Additional checks run creation in a separate process with package-body downloads forbidden after preparation, and verify that a cached Python package is unavailable when `create()` does not request it. Duplicate package references are collapsed before loading and after resolution; overlapping commands from distinct packages retain `COMMAND_AMBIGUOUS` instead of an implicit override.
 
 Run these controls and the preparation cancellation/cleanup regressions with `npm run test:prepare` after building. These controls are separate from the 19 earlier SDK and deadline ablation outcomes.
+
+## Active guest shutdown (0.2.0)
+
+Repeated live-descriptor tests exposed a Wasmer 0.19.1 teardown race: forced
+guest termination followed by core shutdown can trap or hang. For an active
+command, the owning supervisor now terminates and awaits all of its Node
+workers, then releases native host mounts, network/cache bridges and its proxy.
+The parent subsequently destroys that supervisor and its WASM memory. Completed
+commands retain normal SDK cleanup. The five repeated host-mount checks assert
+real descriptor release and zero live workers; injected active-cleanup failures
+remain `CLOSE_FAILED`. This owner-only path is not a reusable upstream client API.

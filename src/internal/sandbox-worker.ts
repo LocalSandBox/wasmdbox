@@ -172,13 +172,18 @@ async function close() {
   if (closing) return;
   closing = true;
   let cleanupFailed = false;
+  const active = running.size > 0;
   for (const record of running.values()) {
     record.cancelled = true;
     record.stopDraining?.();
-    try { await record.process?.kill(); } catch { cleanupFailed = true; }
   }
-  await Promise.allSettled([...running.values()].map(record => record.task));
-  for (const action of [() => sandbox?.close(), () => client?.close(), () => proxy?.close()]) {
+  // A supervisor owns exactly one client. Active guest teardown uses an
+  // awaited Node worker barrier before releasing native mounts; the parent
+  // then terminates this supervisor, including the abandoned WASM core.
+  const dispose = active
+    ? [() => (client as Wasmer & { terminateOwnedRuntime(): Promise<void> } | undefined)?.terminateOwnedRuntime()]
+    : [() => sandbox?.close(), () => client?.close()];
+  for (const action of [...dispose, () => proxy?.close()]) {
     try { await action(); } catch { cleanupFailed = true; }
   }
   unsubscribe?.();

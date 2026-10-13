@@ -122,26 +122,31 @@ test('public host mounts through real WASM workers', { timeout: 240_000 }, async
     assertReleased(observations(report).slice(start));
   });
 
-  await t.test('closing a running guest releases a descriptor proven open in the host', async () => {
-    const start = observations(report).length;
-    const box = await create();
-    const proc = await box.spawn(command('leak-live'));
-    proc.stderr.resume();
-    let output = '';
-    for await (const chunk of proc.stdout) {
-      output += chunk.toString();
-      if (output.includes('fd-open')) break;
-    }
-    assert.match(output, /fd-open/);
-    assert.ok(activeHandles(observations(report).slice(start)).size > 0, 'guest open reaches a native host descriptor');
-    try { await box.close(); }
-    catch (error) {
-      console.error('Host descriptor events before close failed:', observations(report).slice(start));
-      throw error;
-    }
-    await assert.rejects(proc.wait(), { code: 'SANDBOX_CLOSED' });
-    assertReleased(observations(report).slice(start));
-  });
+  // Repetition catches the cross-platform teardown race after Process.kill().
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await t.test('closing a running guest releases a descriptor proven open in the host', async () => {
+      const start = observations(report).length;
+      const box = await create();
+      const proc = await box.spawn(command('leak-live'));
+      proc.stderr.resume();
+      let output = '';
+      for await (const chunk of proc.stdout) {
+        output += chunk.toString();
+        if (output.includes('fd-open')) break;
+      }
+      assert.match(output, /fd-open/);
+      assert.ok(activeHandles(observations(report).slice(start)).size > 0, 'guest open reaches a native host descriptor');
+      try { await box.close(); }
+      catch (error) {
+        console.error('Host descriptor events before close failed:', observations(report).slice(start));
+        throw error;
+      }
+      await assert.rejects(proc.wait(), { code: 'SANDBOX_CLOSED' });
+      const events = observations(report).slice(start);
+      assertReleased(events);
+      assert.ok(events.some(event => event.operation === 'Wasmer.terminateOwnedRuntime' && event.phase === 'end' && event.activeWorkers === 0), 'all guest workers exited before native cleanup completed');
+    });
+  }
 });
 
 function observations(report) {

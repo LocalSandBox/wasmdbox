@@ -41,14 +41,15 @@ if (!isMainThread && workerData?.mode === 'sandbox' && report && target) {
   syncBuiltinESMExports();
   // Keep failure reports useful when a runtime stalls before descriptor cleanup.
   const sdk = await import('../../dist/vendor/wasmer-sdk/dist/node.js');
-  for (const [Class, method] of [[sdk.Process, 'kill'], [sdk.Process, 'wait'], [sdk.Sandbox, 'close'], [sdk.Wasmer, 'close']]) {
+  const { nodeWorkerStats } = await import('../../dist/vendor/wasmer-sdk/dist/node-worker-adapter.js');
+  for (const [Class, method] of [[sdk.Process, 'kill'], [sdk.Process, 'wait'], [sdk.Sandbox, 'close'], [sdk.Wasmer, 'close'], [sdk.Wasmer, 'terminateOwnedRuntime']]) {
     const original = Class.prototype[method];
     Class.prototype[method] = async function (...args) {
       const operation = `${Class.name}.${method}`;
       record({ type: 'lifecycle', operation, phase: 'start' });
       try { return await original.apply(this, args); }
       catch (error) { record({ type: 'lifecycle', operation, phase: 'error', message: String(error), stack: error?.stack }); throw error; }
-      finally { record({ type: 'lifecycle', operation, phase: 'end' }); }
+      finally { record({ type: 'lifecycle', operation, phase: 'end', activeWorkers: nodeWorkerStats().activeWorkers }); }
     };
   }
 }

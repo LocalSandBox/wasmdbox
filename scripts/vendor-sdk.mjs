@@ -6,8 +6,10 @@ import { replacements as mounts } from '../patches/wasmer-sdk-0.19.1.mjs';
 import { replacements as network } from '../patches/wasmer-sdk-network-0.19.1.mjs';
 import { replacements as workerFailures } from '../patches/wasmer-sdk-worker-failures-0.19.1.mjs';
 
+import { replacements as shutdown } from '../patches/wasmer-sdk-shutdown-0.19.1.mjs';
+
 export const projectRoot = fileURLToPath(new URL('../', import.meta.url));
-export const patchGroups = { mounts, network, workerFailures };
+export const patchGroups = { mounts, network, workerFailures, shutdown };
 const manifest = JSON.parse(await readFile(new URL('../patches/wasmer-sdk-0.19.1.integrity.json', import.meta.url), 'utf8'));
 
 /** Read only a byte-verified upstream package, never an already patched SDK. */

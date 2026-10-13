@@ -17,14 +17,18 @@ try {
       mounts: [{ hostPath: root, guestPath: '/mounted' }],
       ...(mode === 'proxy-failure' ? { network: {} } : {}),
     });
-    if (mode === 'close-failure') await box.close();
+    if (mode === 'active-close-failure') {
+      const command = await box.spawn(['bash', '-c', 'sleep 30']);
+      command.stdout.resume(); command.stderr.resume();
+      await box.close();
+    } else if (mode === 'close-failure') await box.close();
     else await box.exec(['bash', '-c', 'sleep 5'], { timeoutMs: mode === 'stalled-command' ? 20 : 10_000 });
   } catch (error) { observed = error; }
   assert.ok(observed instanceof SandboxError, `expected SandboxError for ${mode}: ${observed}`);
   assert.equal(observed instanceof CommandError, false);
   const expected = {
     'runtime-error': 'WORKER_FAILED', 'stalled-command': 'SANDBOX_UNRESPONSIVE',
-    'startup-failure': 'CREATE_FAILED', 'close-failure': 'CLOSE_FAILED',
+    'startup-failure': 'CREATE_FAILED', 'close-failure': 'CLOSE_FAILED', 'active-close-failure': 'CLOSE_FAILED',
     'invalid-protocol': 'PROTOCOL_ERROR', 'unexpected-exit': 'WORKER_FAILED',
     'proxy-failure': 'PROXY_FAILED',
   }[mode];

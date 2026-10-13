@@ -19,10 +19,11 @@ if (mode === 'runtime-error') {
   };
   syncBuiltinESMExports();
 }
-if (['stalled-command', 'startup-failure', 'close-failure'].includes(mode)) {
+if (['stalled-command', 'startup-failure', 'close-failure', 'active-close-failure'].includes(mode)) {
   const sdk = await import('../../dist/vendor/wasmer-sdk/dist/node.js');
   if (mode === 'stalled-command') sdk.Sandbox.prototype.command = () => ({ spawn: () => new Promise(() => {}) });
   if (mode === 'close-failure') sdk.Wasmer.prototype.close = async () => { throw new Error('injected close failure'); };
+  if (mode === 'active-close-failure') sdk.Wasmer.prototype.terminateOwnedRuntime = async () => { throw new Error('injected active close failure'); };
   if (mode === 'startup-failure') {
     const core = await import('../../dist/vendor/wasmer-sdk/pkg/wasmer_sdk_js.js');
     core.SandboxBuilderCore.prototype.start = function () { this.free(); throw new Error('injected core startup failure'); };
