@@ -2,11 +2,12 @@
 
 Removal experiments reduced the initial wrapper's 25 SDK runtime replacements to 19.
 The retained replacements handle host mount integration and cleanup (9), enforced TCP proxying (8), and nested worker failure notifications (2).
+Active guest shutdown support in 0.2.0 adds 8 owner-only runtime replacements, bringing the current build to 27; the earlier ablation records below retain their original counts.
 Third-party declaration files are no longer modified, consumer installation does not patch shared dependencies in `node_modules`, and there is no second public RPC networking interface.
 
 ## Wasmer SDK 0.19.1 upgrade
 
-The current SDK is pinned to 0.19.1, with EdgeJS 0.2.5 and no keepalive preload. The project's own version remains 0.1.2. The SDK patch files, build imports, pristine-source fallback, and ablation reports now refer to 0.19.1.
+The SDK upgrade pinned 0.19.1, with EdgeJS 0.2.5 and no keepalive preload. That upgrade kept the project's own version at 0.1.2; release 0.2.0 also includes the active guest shutdown changes described below. The SDK patch files, build imports, pristine-source fallback, and ablation reports now refer to 0.19.1.
 
 The integrity manifest was regenerated from the official npm archive after checking its SHA512 against npm metadata. It covers 66 upstream files, including the new host-timer JS snippet and the Acorn license alongside the existing runtime files. All 19 exact replacement anchors remain valid; the mount, proxy, and worker-failure patch bodies are unchanged. The older validation records below retain their original versions.
 
