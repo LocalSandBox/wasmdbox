@@ -14,6 +14,7 @@ let sandbox: WasmerSandbox | undefined;
 let proxy: Awaited<ReturnType<typeof startProxy>> | undefined;
 let failed = false;
 let closing = false;
+let interrupted = false;
 let unsubscribe: (() => void) | undefined;
 type RunningCommand = { process?: WasmerProcess; cancelled: boolean; task?: Promise<void>; stopDraining?: () => void };
 const running = new Map<number, RunningCommand>();
@@ -172,7 +173,7 @@ async function close() {
   if (closing) return;
   closing = true;
   let cleanupFailed = false;
-  const active = running.size > 0;
+  const active = running.size > 0 || interrupted;
   for (const record of running.values()) {
     record.cancelled = true;
     record.stopDraining?.();
@@ -199,6 +200,7 @@ port.on('message', (message: ParentMessage) => {
     case 'cancel': {
       const record = running.get(message.id);
       if (record) {
+        interrupted = true;
         record.cancelled = true;
         void record.process?.kill().catch(() => fatal('WORKER_FAILED', 'Cannot terminate guest process'));
       }
