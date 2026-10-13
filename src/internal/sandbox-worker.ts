@@ -135,7 +135,7 @@ async function run(id: number, argv: string[], settings: WireCommandOptions) {
       // release those pipes, rather than waiting for them before cleanup.
       const stopped = deferred<void>();
       record.stopDraining = stopped.resolve;
-      try { await Promise.race([Promise.all([drains, input]), stopped.promise]); }
+      try { if (!record.cancelled) await Promise.race([Promise.all([drains, input]), stopped.promise]); }
       finally { record.stopDraining = undefined; }
       if (failed || closing) return;
       const result = {
@@ -202,6 +202,7 @@ port.on('message', (message: ParentMessage) => {
       if (record) {
         interrupted = true;
         record.cancelled = true;
+        record.stopDraining?.();
         void record.process?.kill().catch(() => fatal('WORKER_FAILED', 'Cannot terminate guest process'));
       }
       break;

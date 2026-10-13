@@ -22,8 +22,13 @@ try {
       await delay(20);
     }
   }
-  await sandbox.close();
-  await assert.rejects(command.wait(), { code: 'SANDBOX_CLOSED' });
+  if (process.argv[3] === 'kill') {
+    await command.kill();
+    await assert.rejects(command.wait(), { code: 'KILLED' });
+  } else {
+    await sandbox.close();
+    await assert.rejects(command.wait(), { code: 'SANDBOX_CLOSED' });
+  }
   console.log('stalled output closed');
 } finally {
   try { await sandbox.close(); }
