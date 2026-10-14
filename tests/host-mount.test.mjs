@@ -95,7 +95,7 @@ test('public host mounts through real WASM workers', { timeout: 240_000 }, async
     const survivor = await create();
     try {
       for (const mounts of [
-        [{ ...mount, guestPath: '/workspace' }],
+        [{ ...mount, guestPath: '/workspace/nested' }],
         [mount, { ...mount, guestPath: '/mounted/nested' }],
         [mount, { hostPath: join(directory, 'missing'), guestPath: '/missing' }],
       ]) await assert.rejects(create({ mounts }), SandboxError);

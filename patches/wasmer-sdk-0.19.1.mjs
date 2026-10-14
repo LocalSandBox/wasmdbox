@@ -7,7 +7,8 @@ export const replacements = {
     ['            const core = await rethrow(builder.start());\n            return new Sandbox(this, core, options.shell, networkBridge);', `            if (options.mounts !== undefined) {
                 const hostMounts = this.constructor.prepareHostMounts(client, options.mounts);
                 for (const mount of hostMounts.mounts) {
-                    builder.mountHost(mount.guestPath, mount.id, mount.readOnly);
+                    if (mount.guestPath === '/workspace') builder.storageHost(mount.id);
+                    else builder.mountHost(mount.guestPath, mount.id, mount.readOnly);
                 }
             }
             const core = await rethrow(builder.start());
@@ -15,7 +16,8 @@ export const replacements = {
   ],
   'dist/node.js': [
     ['import { NodeWorkerAdapter } from "./node-worker-adapter.js";', `import { NodeWorkerAdapter } from "./node-worker-adapter.js";
-import { registerHostMounts, closeHostMounts } from "./node-host-filesystem.js";`],
+import { registerHostMounts, closeHostMounts, dispatchHostFileSystem } from "./node-host-filesystem.js";
+import { installHostFileSystemClientBridge } from "./host-filesystem.js";`],
     ['export class Wasmer extends BrowserWasmer {', `export class Wasmer extends BrowserWasmer {
     static prepareHostMounts(client, mounts) {
         return registerHostMounts(client, mounts);
@@ -27,6 +29,7 @@ import { registerHostMounts, closeHostMounts } from "./node-host-filesystem.js";
                 nodeCaches.get(client)?.close();
                 nodeCaches.delete(client);
             }`],
+    ['        installNodeCacheGlobals();', '        installNodeCacheGlobals();\n        installHostFileSystemClientBridge(dispatchHostFileSystem);'],
   ],
   'dist/node-worker.js': [
     ['import { parentPort } from "node:worker_threads";',

@@ -49,6 +49,16 @@ The build produces JavaScript, declaration files, and a private copy of the Wasm
 
 GitHub Actions runs validation on Linux, macOS and Windows on pull requests and pushes to `main`, including commands, virtual files, local host directory mounts, package loading and networking. Windows mounts use the Node filesystem adapter without native addons; see the [mount guide](docs/sdk-host-mounts.md) for path restrictions and filesystem boundaries. Pushing a matching `v*` version tag runs validation and publishes the verified tarball to npm using trusted publishing. See the [publishing guide](docs/publishing.md) for the one-time account setup and release commands.
 
+When multiple installed packages export the same command, unqualified `exec`/`spawn` retains `COMMAND_AMBIGUOUS`. To explicitly select a command from the default EdgeJS runtime (for example Bash when Python is also installed), pass `package: 'default'`:
+
+```js
+await sandbox.exec(['bash', '-c', 'python --version'], { package: 'default', check: true });
+```
+
+This selects the initial command only; the installed sandbox packages remain available to its child processes. Other `package` values are rejected, and a command absent from the default runtime returns `COMMAND_NOT_FOUND`.
+
+The bundled WASIX Bash has a known parsing limitation with multiline JavaScript inside quoted `node -e` arguments: it can return success without executing that script. Use a guest script file such as `/tmp/script.cjs` and `node /tmp/script.cjs`, or call `exec(['node', '-e', source])` directly.
+
 ## Creation options
 
 ```ts
@@ -70,7 +80,21 @@ const sandbox = await Sandbox.create({
 - Omitting `network` or setting it to `false` disables guest networking. `network: {}` enables a managed TCP proxy.
 - `startupTimeoutMs` defaults to 180 seconds. `signal` controls creation only; commands have separate timeout and cancellation options.
 
-**This release does not expose `sandbox.fs`.** Use the guest's Node `fs` or shell for file operations while it is running. Changes to the virtual `/workspace` are not automatically saved to the host; write persistent results to a writable mount. Closing the sandbox does not delete files in host mounts.
+**This release does not expose `sandbox.fs`.** Use guest Node `fs` or a shell for file operations. Mount an existing host directory at exact `/workspace` to make the default working directory read-write and persistent:
+
+```js
+const sandbox = await Sandbox.create({
+  mounts: [{ hostPath: './project', guestPath: '/workspace', readOnly: false }],
+});
+try {
+  await sandbox.exec(['bash', '-c', 'printf hello > report.txt'], { check: true });
+} finally { await sandbox.close(); }
+// ./project/report.txt remains on the host.
+```
+
+With a `/workspace` mount, `files` writes into that host directory during creation, overwrites matching files, and obeys `readOnly` and `denyWritePaths`. **Creation is not transactional:** errors, timeouts and cancellation may leave partial writes or created directories. No rollback or automatic retry is provided. Without this mount, `/workspace` and `files` use temporary in-memory storage. Closing a sandbox never deletes mounted user files. Commands can use a host mount or its subdirectory as `cwd`.
+
+Managed CA files live in a separate, private, read-only `/.wasmdbox` mount, never in the project. Its parent-owned temporary directory is removed after runtime termination on close or SDK-managed failure/cancellation. Killing the entire owner process can leave temporary files; there is no background sweeper. Public mounts cannot use `/.wasmdbox` or its descendants. Prefer `network.caCerts` for additional CA trust.
 
 ## Loading a local WEBC package
 

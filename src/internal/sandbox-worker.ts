@@ -1,5 +1,7 @@
 import { parentPort, workerData } from 'node:worker_threads';
-import type { Wasmer, Sandbox as WasmerSandbox, Process as WasmerProcess } from '@wasmer/sdk/node';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { Wasmer, Sandbox as WasmerSandbox, Process as WasmerProcess, Package as WasmerPackage } from '@wasmer/sdk/node';
 import { startProxy } from './proxy.js';
 import { deferred, type ParentMessage, type WorkerMessage, type WorkerOptions, type WireCommandOptions } from './protocol.js';
 import type { SandboxErrorCode } from '../errors.js';
@@ -7,9 +9,10 @@ import type { SandboxErrorCode } from '../errors.js';
 const port = parentPort!;
 const options = workerData as WorkerOptions;
 const DEFAULT_RUNTIME = 'wasmer/edgejs-quickjs@=0.2.5';
-const INTERNAL = '/workspace/.wasmdbox';
+const INTERNAL = '/.wasmdbox';
 const CA = `${INTERNAL}/ca.pem`;
 let client: Wasmer | undefined;
+let defaultPackage: WasmerPackage | undefined;
 let sandbox: WasmerSandbox | undefined;
 let proxy: Awaited<ReturnType<typeof startProxy>> | undefined;
 let failed = false;
@@ -43,8 +46,7 @@ async function initialize() {
     hostEntriesOmitted = hostAdapter.hostFileSystemEntriesOmitted;
     const files = { ...options.files };
     for (const [path, contents] of Object.entries(files)) {
-      if (!path.startsWith('/workspace/') || path.includes('\0') || path.includes('\\') || path.split('/').includes('..')
-          || path === INTERNAL || path.startsWith(`${INTERNAL}/`)) throw new Error('Invalid or reserved guest file path');
+      if (!path.startsWith('/workspace/') || path.includes('\0') || path.includes('\\') || path.split('/').includes('..')) throw new Error('Invalid or reserved guest file path');
       if (typeof contents !== 'string' && !(contents instanceof Uint8Array)) throw new Error('Invalid guest file contents');
     }
     const network = options.mode === 'sandbox' && options.network;
@@ -58,6 +60,7 @@ async function initialize() {
     client = new sdk.Wasmer(sdkOptions);
     const sources = [...new Set([DEFAULT_RUNTIME, ...(options.extraPkgs ?? [])])];
     const loaded = await client.packages.loadMany(sources);
+    defaultPackage = loaded[0];
     const packages = [...new Map(loaded.map(pkg => [pkg.id, pkg])).values()];
     if (failed) return;
     if (options.mode === 'prepare') { send({ type: 'ready' }); return; }
@@ -68,10 +71,16 @@ async function initialize() {
       if (extra === undefined) throw new Error('NODE_EXTRA_CA_CERTS must refer to an imported file when managed CA trust is enabled');
       certificates.push(typeof extra === 'string' ? extra : new TextDecoder().decode(extra));
     }
-    if (certificates.length) { files[CA] = certificates.join('\n'); caBundle = true; }
+    const mounts = [...options.mounts ?? []];
+    if (certificates.length) {
+      if (!options.runtimeDirectory) throw new Error('Missing private runtime directory');
+      writeFileSync(join(options.runtimeDirectory, 'ca.pem'), certificates.join('\n'), { mode: 0o600 });
+      mounts.push(hostAdapter.internalRuntimeMount(options.runtimeDirectory));
+      caBundle = true;
+    }
     baseEnv = { ...options.env };
     const settings = {
-      packages, files, mounts: options.mounts,
+      packages, files, mounts,
       env: commandEnv(), network: { mode: proxy ? 'host' as const : 'disabled' as const },
     };
     sandbox = await client.sandboxes.create(settings);
@@ -89,6 +98,10 @@ function diagnostic(error: unknown): string {
   for (const value of values.filter(value => typeof value === 'string' && value.length).sort((a, b) => b.length - a.length)) {
     message = message.split(value).join('[redacted]');
   }
+  const paths = [options.runtimeDirectory, options.cacheDir, ...(options.mounts ?? []).map(mount => mount.hostPath)];
+  for (const path of paths.filter((path): path is string => Boolean(path)).sort((a, b) => b.length - a.length)) {
+    message = message.split(path).join('[host path]');
+  }
   return message.slice(0, 1_024);
 }
 
@@ -105,7 +118,8 @@ async function run(id: number, argv: string[], settings: WireCommandOptions) {
     let started = false;
     try {
       if (!sandbox || closing || failed) return;
-      record.process = await sandbox.command(argv[0]!, argv.slice(1), {
+      const selector = settings.package === 'default' ? defaultPackage!.command(argv[0]!) : argv[0]!;
+      record.process = await sandbox.command(selector, argv.slice(1), {
         cwd: settings.cwd ?? '/workspace', env: commandEnv(settings.env),
       }).spawn({
         stdin: settings.stdin ?? 'closed', stdout: 'pipe', stderr: 'pipe',

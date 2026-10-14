@@ -5,6 +5,7 @@ export type { NetworkOptions } from './internal/proxy.js';
 
 export interface HostMount {
   hostPath: string;
+  /** Exact /workspace replaces guest storage; descendants and overlaps are rejected. */
   guestPath: string;
   readOnly?: boolean;
   /** Mount-relative subtrees that remain readable but cannot be mutated. */
@@ -22,6 +23,12 @@ export interface PrepareOptions {
 }
 
 export interface SandboxOptions extends PrepareOptions {
+  /**
+   * Initial /workspace files. With a /workspace host mount, writes persist and
+   * overwrite matching host files. Subject to mount write restrictions. Creation
+   * is not transactional: failure, timeout or cancellation may leave partial
+   * writes. Without that mount, files belong to the temporary memory workspace.
+   */
   files?: Readonly<Record<string, string | Uint8Array>>;
   env?: Readonly<Record<string, string>>;
   mounts?: readonly HostMount[];
@@ -30,6 +37,8 @@ export interface SandboxOptions extends PrepareOptions {
 }
 
 export interface CommandOptions {
+  /** Explicitly select the default runtime's command when extra packages export the same name. */
+  package?: 'default';
   cwd?: string;
   env?: Readonly<Record<string, string>>;
   timeoutMs?: number;

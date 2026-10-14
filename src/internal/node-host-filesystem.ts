@@ -3,6 +3,14 @@
 import * as fs from 'node:fs';
 import { isAbsolute, join, posix, sep } from 'node:path';
 
+const INTERNAL_MOUNT = Symbol('wasmdbox internal mount');
+const INTERNAL_PATH = '/.wasmdbox';
+
+/** Only private runtime code can mint this capability; it never crosses workerData. */
+export function internalRuntimeMount(hostPath: string): HostDirectoryMount {
+  return { hostPath, guestPath: INTERNAL_PATH, readOnly: true, [INTERNAL_MOUNT]: true } as HostDirectoryMount;
+}
+
 const CHUNK_BYTES = 64 * 1024;
 const MAX_U32 = 0xffff_ffff;
 export interface HostDirectoryMount {
@@ -92,7 +100,12 @@ function validateMounts(configs: readonly HostDirectoryMount[]) {
         posix.normalize(guestPath) !== guestPath) {
       throw error('EINVAL', 'guestPath must be a normalized absolute path, such as /mounted');
     }
-    if ([...reserved, ...destinations].some((path) => overlap(path, guestPath))) {
+    const internal = (config as HostDirectoryMount & { [INTERNAL_MOUNT]?: boolean })[INTERNAL_MOUNT] === true;
+    if (overlap(INTERNAL_PATH, guestPath) && !(internal && guestPath === INTERNAL_PATH && config.readOnly === true)) {
+      throw error('EINVAL', 'The private runtime mount is reserved');
+    }
+    if (reserved.some(path => overlap(path, guestPath) && !(path === '/workspace' && guestPath === '/workspace')) ||
+        destinations.some(path => overlap(path, guestPath))) {
       throw error('EINVAL', 'Mounts must not overlap each other or SDK runtime/storage paths');
     }
     if (config.readOnly !== undefined && typeof config.readOnly !== 'boolean') {
@@ -156,9 +169,16 @@ export function closeHostMounts(owner: object): void {
 }
 
 export function dispatchHostFileSystem(mount: unknown, method: unknown, args: unknown): unknown {
-  const provider = mounts.get(integer(mount, 'mount ID', MAX_U32));
-  if (!provider) throw error('EPERM', 'Unknown or closed host mount');
-  return provider.call(method, args);
+  try {
+    const provider = mounts.get(integer(mount, 'mount ID', MAX_U32));
+    if (!provider) throw error('EPERM', 'Unknown or closed host mount');
+    return provider.call(method, args);
+  } catch (failure) {
+    const code = (failure as NodeJS.ErrnoException)?.code;
+    const safeCode = typeof code === 'string' && /^[A-Z][A-Z0-9_]*$/.test(code) ? code : 'EIO';
+    // Identical safe errors for supervisor calls and nested-worker RPCs.
+    throw error(safeCode, `Host filesystem operation failed (${safeCode})`);
+  }
 }
 
 /** Diagnostic counts for lifecycle regression tests; no paths or descriptors. */

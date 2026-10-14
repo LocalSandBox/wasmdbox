@@ -2,8 +2,14 @@
 
 Removal experiments reduced the initial wrapper's 25 SDK runtime replacements to 19.
 The retained replacements handle host mount integration and cleanup (9), enforced TCP proxying (8), and nested worker failure notifications (2).
-Active guest shutdown support in 0.2.0 adds 8 owner-only runtime replacements, bringing the current build to 27; the earlier ablation records below retain their original counts.
+Active guest shutdown support in 0.2.0 adds 8 owner-only runtime replacements, bringing that build to 27; the earlier ablation records below retain their original counts.
 Third-party declaration files are no longer modified, consumer installation does not patch shared dependencies in `node_modules`, and there is no second public RPC networking interface.
+
+## Host-backed workspace (0.3.0)
+
+The 0.3.0 build restores a supervisor synchronous filesystem bridge for SDK storage initialization and host-backed cwd checks, bringing the build to 28 replacements. The previous removal experiment only exercised guest access to a non-workspace mount and did not cover these client-side operations. Exact `/workspace` now selects `builder.storageHost(id)`; regular mounts still use `mountHost`.
+
+New `workspace` and `host-cwd` positive controls cover persistent imported files and direct nested cwd. The `no-client-filesystem` variant removes only the supervisor bridge installation and must fail both controls with a filesystem/runtime initialization error. The rest of the mount, proxy, cleanup and failure-forwarding removal controls are retained. Run current ablations for current evidence; the sections below are historical records.
 
 ## Wasmer SDK 0.19.1 upgrade
 

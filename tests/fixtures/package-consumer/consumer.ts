@@ -25,7 +25,9 @@ async function consume(): Promise<CommandResult> {
   void prepared;
   const sandbox: Sandbox = await Sandbox.create(options);
   try {
-    const child: SandboxProcess = await sandbox.spawn(['bash', '-c', 'cat'], { stdin: 'pipe', check: true });
+    // @ts-expect-error Only the explicit default runtime selector is supported.
+    void sandbox.exec(['bash'], { package: 'other' });
+    const child: SandboxProcess = await sandbox.spawn(['bash', '-c', 'cat'], { stdin: 'pipe', check: true, package: 'default' });
     child.stdin?.end('hello');
     child.stdout.resume();
     child.stderr.resume();

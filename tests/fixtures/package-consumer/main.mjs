@@ -22,10 +22,10 @@ try {
   sandbox = await Sandbox.create({
     cacheDir: process.env.WASMDBOX_VERIFY_CACHE,
     files: { '/workspace/guest.cjs': await readFile(new URL('./guest.cjs', import.meta.url)) },
-    mounts: [{ hostPath: './mounted', guestPath: '/mounted' }],
+    mounts: [{ hostPath: './mounted', guestPath: '/workspace' }],
     env: {
       API_URL: `https://package.demo.test:${fixture.port}/`,
-      RESULT_PATH: '/mounted/result.txt',
+      RESULT_PATH: '/workspace/result.txt',
     },
     network: {
       allow: ['package.demo.test'], ports: [fixture.port],
@@ -35,6 +35,7 @@ try {
     },
   });
   assert.equal('fs' in sandbox, false);
+  assert.equal(await readFile('mounted/guest.cjs', 'utf8'), await readFile(new URL('./guest.cjs', import.meta.url), 'utf8'), 'files imports persist to workspace host storage');
   const result = await sandbox.exec(['node', '/workspace/guest.cjs'], { check: true, timeoutMs: 30_000 });
   assert.match(result.stdout, /installed consumer guest passed/);
   assert.equal((await sandbox.exec(['bash', '-c', 'printf shell-ready'], { check: true })).stdout, 'shell-ready');
@@ -49,6 +50,8 @@ console.log('PASS: installed package JS consumer, Node/Bash, files and native HT
 
 const extra = await Sandbox.create({ cacheDir: process.env.WASMDBOX_VERIFY_CACHE, extraPkgs });
 try {
+  await assert.rejects(extra.exec(['bash', '-c', 'true']), { code: 'COMMAND_AMBIGUOUS' });
+  assert.match((await extra.exec(['bash', '-c', 'python --version'], { package: 'default', check: true })).stdout, /^Python 3\./);
   assert.match((await extra.exec(['python', '--version'], { check: true })).stdout, /^Python 3\./);
   assert.match((await extra.exec(['node', '--version'], { check: true })).stdout, /^v\d+/);
   assert.equal((await extra.exec(['local-hello'], { check: true, timeoutMs: 30_000 })).stdout, 'hello from local webc\n');
