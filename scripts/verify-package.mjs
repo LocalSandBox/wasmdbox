@@ -59,6 +59,8 @@ try {
     nodeAndBash: true,
     guestFileWrite: true,
     hostMountWrite: true,
+    hostWorkspaceStorage: true,
+    defaultPackageCommandSelection: true,
     nativeHttpsSecretSubstitution: true,
     runtimePreparation: true,
     extraPackages: true,

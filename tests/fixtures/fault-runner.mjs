@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { Sandbox, SandboxError, CommandError } from 'wasmdbox';
@@ -7,6 +7,10 @@ import { Sandbox, SandboxError, CommandError } from 'wasmdbox';
 const mode = process.argv[2];
 const cacheDir = resolve('.wasmer');
 const root = await mkdtemp(join(tmpdir(), 'wasmdbox-fault-'));
+const runtimeRoot = join(root, 'runtime');
+await mkdir(runtimeRoot);
+// This fixture is its own process; scope every parent-owned CA directory here.
+process.env.TMPDIR = process.env.TEMP = process.env.TMP = runtimeRoot;
 const other = await Sandbox.create({ cacheDir });
 let box;
 try {
@@ -15,7 +19,7 @@ try {
     box = await Sandbox.create({
       cacheDir, env: { WASMDBOX_TEST_FAULT: mode },
       mounts: [{ hostPath: root, guestPath: '/mounted' }],
-      ...(mode === 'proxy-failure' ? { network: {} } : {}),
+      network: { secrets: { TEST_KEY: { value: 'fixture-only-value', hosts: ['fixture.test'] } } },
     });
     if (mode === 'active-close-failure') {
       const command = await box.spawn(['bash', '-c', 'sleep 30']);
@@ -34,6 +38,7 @@ try {
   }[mode];
   assert.equal(observed.code, expected);
   assert.equal((await other.exec(['bash', '-c', 'printf unaffected'], { check: true })).stdout, 'unaffected');
+  assert.deepEqual(await readdir(runtimeRoot), [], 'parent removes private CA directory after failure settlement');
   console.log(mode + ': ' + observed.code);
 } finally {
   await Promise.allSettled([box?.close(), other.close()]);

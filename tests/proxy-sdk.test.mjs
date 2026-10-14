@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdtemp, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import net from 'node:net';
 import https from 'node:https';
@@ -66,12 +68,12 @@ test('public Sandbox real WASM: Node/Bash fetch, scoped secrets, TCP, DNS and po
     dns: Object.fromEntries(['api.test', 'docs.test', 'blocked.test'].map(host => [host, ['127.0.0.1']])),
     caCerts: [certificate.cert],
   };
-  async function create(networkOptions) {
+  async function create(networkOptions, options = {}) {
     const box = await Sandbox.create({
       cacheDir: fileURLToPath(new URL('../.wasmer/', import.meta.url)),
       files: { '/workspace/probe.cjs': source },
       network: networkOptions,
-      startupTimeoutMs: 180_000,
+      startupTimeoutMs: 180_000, ...options,
     });
     boxes.add(box);
     return box;
@@ -104,6 +106,30 @@ test('public Sandbox real WASM: Node/Bash fetch, scoped secrets, TCP, DNS and po
       if (firstToken === undefined) firstToken = result.guestToken;
       else assert.equal(result.guestToken, firstToken);
     }
+  });
+
+  await t.test('host-backed workspace HTTPS uses a private read-only CA and preserves old collisions', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'wasmdbox-ca-workspace-'));
+    await mkdir(join(root, '.wasmdbox'));
+    await writeFile(join(root, '.wasmdbox/ca.pem'), 'user CA collision');
+    await writeFile(join(root, 'guest.cjs'), 'user guest collision');
+    const box = await create(network, {
+      mounts: [{ hostPath: root, guestPath: '/workspace' }],
+      files: { '/workspace/probe.cjs': source, '/workspace/extra.pem': certificate.cert },
+      env: { NODE_EXTRA_CA_CERTS: '/workspace/extra.pem' },
+    });
+    try {
+      const trusted = await run(box, fetchConfig, { bash: true });
+      assert.equal(trusted.status, 200);
+      assert.equal(JSON.parse(trusted.body).credential, 'first');
+      await box.exec(['node', '-e', `const fs = require('node:fs'), assert = require('node:assert/strict');
+        assert.equal(process.env.NODE_EXTRA_CA_CERTS, '/.wasmdbox/ca.pem');
+        assert.ok(fs.readFileSync('/.wasmdbox/ca.pem', 'utf8').includes('BEGIN CERTIFICATE'));
+        assert.throws(() => fs.writeFileSync('/.wasmdbox/ca.pem', 'overwritten'));
+        assert.throws(() => fs.unlinkSync('/.wasmdbox/ca.pem'));`], { check: true });
+      assert.equal(await readFile(join(root, '.wasmdbox/ca.pem'), 'utf8'), 'user CA collision');
+      assert.equal(await readFile(join(root, 'guest.cjs'), 'utf8'), 'user guest collision');
+    } finally { await box.close(); boxes.delete(box); await rm(root, { recursive: true, force: true }); }
   });
 
   await t.test('per-command environment cannot overwrite managed secret placeholders', async () => {

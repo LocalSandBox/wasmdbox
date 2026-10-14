@@ -36,3 +36,10 @@ for (const mode of ['runtime-error', 'stalled-command', 'startup-failure', 'clos
     assert.match(stdout, new RegExp(mode));
   });
 }
+
+test('private CA directories are parent-owned through startup failure, cancellation and close', { timeout: 60_000 }, async () => {
+  const { stdout } = await execute(process.execPath, [
+    fileURLToPath(new URL('./fixtures/private-ca-lifecycle.mjs', import.meta.url)),
+  ], { cwd: root, timeout: 50_000 });
+  assert.match(stdout, /private CA lifecycle passed/);
+});

@@ -14,6 +14,7 @@ const sdkUrl = name => pathToFileURL(join(sdkDirectory, name)).href;
 const { Wasmer } = await import(sdkUrl('dist/node.js'));
 
 if (probe === 'mount' || probe === 'mount-failure') await mountProbe();
+else if (probe === 'workspace' || probe === 'host-cwd') await workspaceProbe();
 else if (probe === 'tcp') await tcpProbe();
 else if (probe === 'dns') await dnsProbe();
 else if (probe === 'listener') await listenerProbe();
@@ -91,6 +92,30 @@ console.log('mount-ok');` },
   }
   const { hostFileSystemStats } = await import(sdkUrl('dist/node-host-filesystem.js'));
   assert.deepEqual(hostFileSystemStats(), { mounts: 0, handles: 0 });
+}
+
+async function workspaceProbe() {
+  const directory = await mkdtemp(join(tmpdir(), 'wasmdbox-ablation-workspace-'));
+  const wasmer = client();
+  let sandbox;
+  try {
+    const pkg = await runtime(wasmer);
+    await mkdir(join(directory, 'nested'));
+    const guestPath = probe === 'workspace' ? '/workspace' : '/mounted';
+    sandbox = await wasmer.sandboxes.create({
+      packages: [pkg], network: { mode: 'disabled' },
+      mounts: [{ hostPath: directory, guestPath }],
+      files: probe === 'workspace' ? { '/workspace/imported.txt': 'persisted import' } : {},
+    });
+    const result = await sandbox.command('bash', ['-c', 'pwd; printf write > result.txt'], { cwd: guestPath + '/nested' }).run({ timeoutMs: 8_000 });
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.stdout.text(), guestPath + '/nested\n');
+    assert.equal(await readFile(join(directory, 'nested/result.txt'), 'utf8'), 'write');
+    if (probe === 'workspace') assert.equal(await readFile(join(directory, 'imported.txt'), 'utf8'), 'persisted import');
+  } finally {
+    try { await sandbox?.close(); }
+    finally { try { await wasmer.close(); } finally { await rm(directory, { recursive: true, force: true }); } }
+  }
 }
 
 async function tcpProbe() {

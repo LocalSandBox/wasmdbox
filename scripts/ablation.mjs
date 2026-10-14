@@ -18,8 +18,9 @@ await new Promise((resolve, reject) => {
   child.once('exit', code => code === 0 ? resolve() : reject(new Error('Adapter compilation failed')));
 });
 const variants = [
-  { name: 'full', probes: ['mount', 'mount-failure', 'tcp', 'dns', 'listener', 'keepalive', 'fatal-worker'], expected: true },
+  { name: 'full', probes: ['mount', 'mount-failure', 'workspace', 'host-cwd', 'tcp', 'dns', 'listener', 'keepalive', 'fatal-worker'], expected: true },
   { name: 'stock-sdk', groups: [], adapters: false, nodeOnly: false, probes: ['mount'], expected: false, failure: /ENOENT/ },
+  { name: 'no-client-filesystem', omit: ['mounts:dist/node.js:3'], probes: ['workspace', 'host-cwd'], expected: false, failure: /host filesystem|Host filesystem|No such file|not found|not available|not installed|failed|RuntimeError/i },
   { name: 'no-mount-worker', omit: ['mounts:dist/node-worker.js:0', 'mounts:dist/node-worker.js:1'], probes: ['mount'], expected: false, failure: /ENOENT/ },
   { name: 'no-mount-worker-route', omit: ['mounts:dist/node-worker-adapter.js:0', 'mounts:dist/node-worker-adapter.js:1', 'mounts:dist/node-worker-adapter.js:2'], probes: ['mount'], expected: false, timeout: true },
   { name: 'no-client-mount-cleanup', omit: ['mounts:dist/node.js:2'], probes: ['mount', 'mount-failure'], expected: false, failure: /mounts: 2/ },

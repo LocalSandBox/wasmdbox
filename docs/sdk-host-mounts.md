@@ -16,9 +16,9 @@ try {
 
 `hostPath` must point to an existing host directory. Relative paths are resolved against the caller's working directory. `guestPath` uses a normalized absolute path, such as `/mounted`; `readOnly` defaults to `false`.
 
-Mount points cannot overlap or cover `/workspace`, `/tmp`, `/dev`, runtime directories, or the root directory. The guest uses Node `fs` to access `/mounted`, with operations applied directly to the corresponding host directory. Closing the sandbox releases handles without deleting files written to the mount.
+One mount may use exact `/workspace`, replacing the default storage through `storageHost`. Descendants of `/workspace`, overlapping mounts, `/.wasmdbox`, `/tmp`, `/dev`, runtime directories and the root directory remain reserved. The guest uses Node `fs` to access `/mounted`, with operations applied directly to the corresponding host directory. Closing the sandbox releases handles without deleting files written to the mount.
 
-This release does not expose `sandbox.fs`. `files` imports virtual snapshots, while `mounts` exposes real host directories. Small results can be returned through guest stdout, or files can be persisted through a writable mount.
+This release does not expose `sandbox.fs`. `files` imports into the workspace: temporary memory without a `/workspace` host mount, or persistent host files when that mount exists. Files overwrite matching paths and obey `readOnly`/`denyWritePaths`. Imports are not transactional: creation errors, timeout and cancellation can leave partial writes and created directories. The SDK does not roll back or automatically retry failed creation. Small results can be returned through guest stdout, or files can be persisted through a writable mount.
 
 | Example | Behavior |
 | --- | --- |
@@ -54,4 +54,12 @@ Append writes use native append handles. On Windows, truncation through an appen
 
 Directory enumeration now skips symlinks, hard-linked files and special files; direct access still fails. `CommandResult.hostEntriesOmitted` is an optional cumulative count of skipped entries across the sandbox lifetime (repeated enumerations count again). A successful listing or search is not proof of complete results or compatibility with host node_modules/venv layouts.
 
-Only oversized readDir responses retry with a larger buffer, up to 32 MiB. Oversized mutating RPC responses never retry. Private /workspace remains SDK storage; mount user files at /workfolder and launch commands there through a guest bootstrap.
+Only oversized readDir responses retry with a larger buffer, up to 32 MiB. Oversized mutating RPC responses never retry. Exact `/workspace` is supported as host storage in 0.3.0, and both workspace and ordinary host mounts support direct command `cwd` (including subdirectories). No bootstrap is required.
+
+## Private runtime storage (0.3.0)
+
+The supervisor installs a direct synchronous filesystem bridge using the same adapter as nested-worker RPCs. Both routes preserve error codes and omit native paths from errors. This supports SDK initialization and cwd checks as well as guest I/O.
+
+Managed CA bundles use `/.wasmdbox/ca.pem`, a private read-only mount backed by a parent-owned temporary directory. Neither startup nor networking writes SDK files to the user's workspace, including when users have `.wasmdbox`, `.seawork-runtime` or `guest.cjs` files. Public mount parameters cannot mint internal mount capabilities. The old `/workspace/.wasmdbox` name is ordinary user data.
+
+Only sandboxes requiring managed trust allocate this directory. It is deleted after the runtime worker terminates on normal close, failed creation, startup timeout/cancellation, or worker/proxy failure; repeated close is safe. A command cancellation leaves the sandbox alive until close. Forced termination of the whole owning host process does not guarantee immediate cleanup. Use `network.caCerts` for extra CA trust; an existing imported `NODE_EXTRA_CA_CERTS` file is merged when managed trust is enabled.

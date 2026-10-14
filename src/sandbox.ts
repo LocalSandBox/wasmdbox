@@ -1,6 +1,8 @@
 import { Worker } from 'node:worker_threads';
 import { Readable, Writable } from 'node:stream';
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
+import { mkdtempSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { SandboxError, CommandError, type CommandErrorCode } from './errors.js';
 import type { PrepareOptions, SandboxOptions, ExecOptions, SpawnOptions, CommandResult, SandboxProcess } from './types.js';
@@ -31,11 +33,13 @@ export class Sandbox {
   #closed = deferred<void>();
   #closePromise?: Promise<void>;
   #termination?: Promise<number>;
+  #runtimeDirectory?: string;
   #nextId = 1;
   #running = new Map<number, Running>();
   #io = new Map<number, ReturnType<typeof deferred<void>>>();
 
   private constructor(options: WorkerOptions) {
+    this.#runtimeDirectory = options.runtimeDirectory;
     this.#worker = new Worker(new URL('./internal/sandbox-worker.js', import.meta.url), {
       workerData: options, stdout: true, stderr: true, execArgv: workerModuleHooks(),
     });
@@ -74,16 +78,27 @@ export class Sandbox {
     if (options.network !== undefined && options.network !== false) validateObject(options.network, 'network');
     const { signal, startupTimeoutMs: _, ...settings } = options;
     let sandbox: Sandbox;
+    let runtimeDirectory: string | undefined;
     try {
+      // Snapshot before yielding. Proxy interception or custom trust needs a CA
+      // bundle; an allow-only proxy does not create any private runtime files.
+      const network = options.network;
+      if (mode === 'sandbox' && network && (Object.keys(network.secrets ?? {}).length || network.caCerts?.length)) {
+        runtimeDirectory = mkdtempSync(join(tmpdir(), 'wasmdbox-runtime-'));
+      }
       sandbox = new Sandbox(structuredClone({
-        ...settings, mode,
+        ...settings, mode, runtimeDirectory,
         // Snapshot only each view's bytes, including Buffer and shared-memory
         // views, before yielding. Caller buffers remain owned by the caller.
         extraPkgs: options.extraPkgs?.map(pkg => typeof pkg === 'string' ? pkg : new Uint8Array(pkg)),
         cacheDir: resolve(options.cacheDir ?? defaultCacheDir()),
-        mounts: options.mounts?.map(mount => ({ ...mount, hostPath: resolve(mount.hostPath) })),
+        mounts: options.mounts?.map(mount => ({
+          hostPath: resolve(mount.hostPath), guestPath: mount.guestPath,
+          readOnly: mount.readOnly, denyWritePaths: mount.denyWritePaths,
+        })),
       }));
     } catch {
+      if (runtimeDirectory) await rm(runtimeDirectory, { recursive: true, force: true });
       throw new SandboxError('INVALID_OPTIONS', `${operation} cannot start with the supplied options`);
     }
     const cancel = () => sandbox.#fail(new SandboxError('STARTUP_ABORTED', `${operation} was cancelled`));
@@ -168,6 +183,7 @@ export class Sandbox {
       invalid('argv must be a nonempty array of strings without NUL bytes');
     }
     validateEnv(options.env);
+    if (options.package !== undefined && options.package !== 'default') invalid('package must be default when supplied');
     if (options.cwd !== undefined && (typeof options.cwd !== 'string' || !options.cwd.startsWith('/') || options.cwd.includes('\0'))) invalid('cwd must be an absolute guest path');
     if (options.check !== undefined && typeof options.check !== 'boolean') invalid('check must be boolean');
     if (options.timeoutMs !== undefined) validateDuration(options.timeoutMs, 'timeoutMs');
@@ -310,7 +326,11 @@ export class Sandbox {
   }
 
   #terminate(): Promise<number> {
-    return this.#termination ??= this.#worker.terminate();
+    return this.#termination ??= (async () => {
+      const code = await this.#worker.terminate();
+      if (this.#runtimeDirectory) await rm(this.#runtimeDirectory, { recursive: true, force: true });
+      return code;
+    })();
   }
 }
 

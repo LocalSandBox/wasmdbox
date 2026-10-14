@@ -15,6 +15,10 @@ interface Request {
 export function isHostFileSystemRequest(value: unknown): value is Request {
   return typeof value === 'object' && value !== null && 'type' in value && value.type === HOST_FS_MESSAGE;
 }
+/** The client also performs synchronous WASM filesystem calls during start/cwd. */
+export function installHostFileSystemClientBridge(dispatch: (mount: unknown, method: unknown, args: unknown) => unknown) {
+  (globalThis as unknown as { __wasmerHostFileSystem: typeof dispatch }).__wasmerHostFileSystem = dispatch;
+}
 export function installHostFileSystemWorkerBridge(route?: (request: Request) => boolean) {
   let responseBuffer: SharedArrayBuffer | undefined;
   const scope = globalThis as unknown as {
