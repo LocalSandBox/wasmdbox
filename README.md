@@ -59,6 +59,8 @@ This selects the initial command only; the installed sandbox packages remain ava
 
 The bundled WASIX Bash has a known parsing limitation with multiline JavaScript inside quoted `node -e` arguments: it can return success without executing that script. Use a guest script file such as `/tmp/script.cjs` and `node /tmp/script.cjs`, or call `exec(['node', '-e', source])` directly.
 
+Host mounts also have documented [platform boundaries and regression gates](docs/sdk-host-mounts.md#platform-regression-gates-and-known-limitations): a command can temporarily list both case aliases for one host file, and guest `fs.chmodSync()` success does not guarantee a host permission change. The platform tests verify host data and subsequent sandbox commands, including native Windows path and file-sharing cases.
+
 ## Creation options
 
 ```ts
@@ -172,6 +174,8 @@ const result = await sandbox.exec(['bash', '-c', 'printf hello; exit 7'], {
 // { exitCode: 7, stdout: 'hello', stderr: '',
 //   stdoutTruncated: false, stderrTruncated: false }
 ```
+
+Real WASM regression tests cover 1 MiB and 2 MiB UTF-8 `bash -c` heredocs, verifying persisted byte counts, SHA-256 and subsequent command reuse. These are tested sizes, not a guarantee of unlimited arguments or a replacement for a consumer application's smaller command/request limits.
 
 Commands take an argv array without implicit shell parsing. To use shell syntax, explicitly run `bash -c`. The `stdin` option for `exec()` accepts a string or `Uint8Array`. Commands have no execution deadline unless `timeoutMs` is set.
 

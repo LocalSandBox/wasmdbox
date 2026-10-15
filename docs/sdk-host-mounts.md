@@ -38,6 +38,24 @@ The SDK package's private Wasmer adapter forwards guest WASIX file access to the
 - File watching, locking, and full POSIX semantics are not guaranteed. Metadata caching for open files may affect the visibility of concurrent host changes.
 - Synchronous host I/O blocks that sandbox's supervisor. Path-check races remain when external host processes replace directories concurrently. The adapter does not provide the guarantees of native `openat` or operating-system isolation.
 
+## Platform regression gates and known limitations
+
+`tests/workspace-mount.test.mjs` runs real guest commands against disposable host directories in the existing macOS, Linux and Windows CI jobs. Each probe checks host contents and executes another command in the same sandbox. Timeouts, worker failures, lost or unexpectedly changed data, and an unusable sandbox fail the tests. Platform-specific skips are explicit; passing on one OS does not validate skipped cases on another.
+
+| Scenario | Gate or documented limitation |
+| --- | --- |
+| Case-only rename, such as `mv readme.md README.md` | On a volume detected to be case-insensitive, contents must survive and the host must contain exactly the new spelling. The adapter uses native `rename`, not a copy/delete sequence. |
+| Writes through `Foo` and `foo` on a case-insensitive volume | One host file must contain the last write. Wasmer may list both spellings within the command that created them; the next command must list the single host entry and read the latest contents through both names. This display limitation does not indicate two independent files. |
+| Windows device names and trailing dots | `aux.txt` and `a.` must fail with a permission error, without creating files or overwriting an existing `a`. |
+| Windows file held exclusively by another host process | Deletion must fail with a busy/permission error, preserve contents and leave the sandbox usable. After the host releases the handle, reading and deleting the file must work. |
+| Windows nested paths exceeding 260 characters | The file must persist at the full path, or the guest must explicitly report `ENAMETOOLONG`. Partial parent directories can remain on failure; silently shortened or aliased paths are not accepted. |
+| macOS Unicode normalization | An NFC lookup of a host-created NFD `café.txt` works on the tested default macOS volume. Other volume/runtime combinations may return `ENOENT`; the original spelling must remain readable and the data unchanged. |
+| POSIX executable bits | With the default runtime, the shell has no `chmod` command (exit 127). Guest Node `fs.chmodSync()` can return success while the host mode stays `0644`. Tests inspect the host mode explicitly and report this known limitation; they also accept a future implementation that changes it to `0755` or explicitly reports an unsupported operation. |
+
+Case sensitivity is probed on the actual temporary volume, rather than inferred from the OS. Case-sensitive macOS/Windows volumes therefore skip only the case-insensitive scenarios. The test diagnostics identify accepted limitations; arbitrary errors are not treated as passing results.
+
+Host permission changes are not supported by the current host filesystem bridge. Do not infer executable bits or access restrictions from guest `chmodSync()` success; if host permissions matter, set and verify them on the host. Permission enforcement for mounts still comes from `readOnly`, `denyWritePaths` and the host's existing access controls. The case-listing and permission limitations require upstream runtime support to resolve; these regression gates do not claim to fix them.
+
 ## Windows paths and file semantics
 
 Use an existing local directory as `hostPath`, for example `'C:/data'` or `'C:\\data'` in JavaScript. Relative paths resolve against the caller's working directory. The guest still accesses POSIX paths such as `/mounted/report.txt`; it does not use drive letters. Unicode names and spaces are supported.
