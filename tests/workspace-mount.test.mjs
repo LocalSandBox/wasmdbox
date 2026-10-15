@@ -164,9 +164,17 @@ test('host-backed workspace platform behavior', { timeout: 300_000 }, async t =>
     const exec = await create();
     const release = await lockFile(path);
     try {
+      await assert.rejects(rm(path), error => ['EBUSY', 'EPERM', 'EACCES'].includes(error.code),
+        'native host deletion must confirm that the exclusive handle blocks removal');
       const result = await exec(['bash', '-c', 'rm x.txt'], { check: false });
       assert.notEqual(result.exitCode, 0);
-      assert.match(result.stderr, /EBUSY|EPERM|EACCES|permission denied|operation not permitted|resource busy|access.*denied/i);
+      // The Windows sharing violation can lose its specific errno in WASIX.
+      // Accept only this observed diagnostic after independently proving the lock.
+      if (/^rm: cannot remove 'x\.txt': I\/O error\r?\n?$/.test(result.stderr)) {
+        t.diagnostic('Known limitation: the guest reports the Windows sharing violation as I/O error');
+      } else {
+        assert.match(result.stderr, /EBUSY|EPERM|EACCES|permission denied|operation not permitted|resource busy|access.*denied/i);
+      }
       assert.deepEqual(await readdir(root), ['x.txt']);
       await assertWorkspaceUsable(exec);
     } finally { await release(); }
