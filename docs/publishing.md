@@ -1,6 +1,6 @@
 # CI and npm publishing
 
-The workflows follow the separation used by [local-sandbox](https://github.com/LocalSandBox/local-sandbox/tree/main/.github/workflows): validate the release commit, run CI, and then publish the verified artifact. This package has no native binding matrix to assemble.
+The workflows follow the separation used by [local-sandbox](https://github.com/LocalSandBox/local-sandbox/tree/main/.github/workflows): validate the release commit, run CI, and then publish the verified artifact. Public npm and the internal registry at `https://npm.sea.com/` receive the same tarball in independent jobs after CI passes. This package has no native binding matrix to assemble.
 
 ## Continuous integration
 
@@ -53,6 +53,27 @@ The unscoped npm package name is `wasmdbox`. It was not present in the public re
 
 The publish job uses GitHub-hosted runners and `id-token: write` for OIDC. The pinned Node 24 release includes npm 11.12.1, above npm's required 11.5.1. It publishes with provenance and does not restore dependency caches or run package lifecycle scripts. The public GitHub repository URL is recorded in `package.json` as required by npm provenance.
 
+## Internal registry setup
+
+Create a GitHub environment named **`npm-internal`**, allow deployments from `v*` tags, and add these **Secrets** to that environment (repository Actions secrets also work):
+
+| Secret | Value |
+| --- | --- |
+| `NPM_SEA_USERNAME` | Internal registry username with permission to publish `wasmdbox` |
+| `NPM_SEA_PASSWORD` | That account's registry password |
+
+Use the Secrets tab, not Variables. Do not put the values in workflow YAML, commit them, or send them in a pull request. Missing credentials fail the internal publication job.
+
+The internal job currently uses `ubuntu-24.04` GitHub-hosted runners. They must be able to resolve and reach `https://npm.sea.com/` and trust its TLS certificate. If that endpoint requires your private network, configure a runner with that access and update this job's `runs-on`. This workflow uses registry-scoped HTTP Basic authentication over HTTPS; the account must support username/password authentication for npm publishing.
+
+The script registers masks for the username, password, Base64 password and Base64 `username:password` before making authenticated requests. GitHub already masks stored Secrets; explicitly masking derived values follows [GitHub's guidance](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets). It scopes authentication to `npm.sea.com` as required by [npm's auth configuration](https://docs.npmjs.com/cli/v11/configuring-npm/npmrc/#auth-related-configuration).
+
+Credentials are injected only into the publication step. The temporary npm config contains an environment-variable placeholder, and the encoded credential is passed to the npm subprocess through its environment. Credential values never appear in command arguments. npm stdout/stderr are discarded, debug log files are disabled, and failures print only controlled diagnostics without registry response bodies or raw exception details. Configuration and cache files are created outside the checkout, removed in `finally`, and covered by an additional `always()` cleanup step. The internal job uploads no artifacts.
+
+The internal job checks the tarball's SHA512 against the CI report before contacting the registry. Existing versions are skipped only when their integrity matches; a mismatch or an unexpected registry response fails. Publishing explicitly passes `--registry=https://npm.sea.com/` to override the tarball's public `publishConfig.registry`, with package scripts and provenance disabled. The tarball itself is unchanged. Public npm keeps its existing OIDC and provenance flow. Either publication job can be retried independently using GitHub Actions' job rerun controls.
+
+For a local release smoke test, use the exact Node version in `.nvmrc`. Node 24.14.1 can fail to compile the guest WASM with an `exnref` validation error; Node 24.15.0 passes the installed-package check. Build and verify a temporary copy with a unique version such as `0.3.1-internal-smoke.TIMESTAMP`, then publish it with `NPM_TAG=internal-smoke` to keep `latest` and `next` unchanged. `NPM_TAG` accepts lowercase names containing letters, numbers and hyphens, beginning with a letter. Validate registry metadata, download integrity, an independent registry installation and an identical rerun. Test versions remain in the registry.
+
 ## Publishing subsequent versions
 
 Update the version on a branch, commit the manifest and lockfile, and merge after CI passes:
@@ -78,9 +99,9 @@ git push origin v0.1.1
 1. Requires the tag to match both manifest versions and the lockfile root version, and requires the tagged commit to be part of `origin/main`.
 2. Runs the complete CI workflow against the tagged commit, including the Windows runtime job.
 3. Downloads the verified Linux tarball and checks its SHA512 against the consumer test report.
-4. Publishes with npm OIDC and provenance. Stable versions use `latest`; versions such as `0.2.0-rc.1` use `next`.
+4. Publishes to public npm with OIDC and provenance, and independently to `npm.sea.com` with the configured secrets. Both jobs use `latest` for stable versions and `next` for versions such as `0.2.0-rc.1`.
 
-Pushing `main` alone never publishes to npm. A failed workflow can be rerun from GitHub Actions after fixing account or environment configuration. An already-published version is skipped only when its registry integrity matches the verified tarball; a different existing artifact fails the release. Registry errors other than a missing version also fail. Changing package contents requires a new version.
+Pushing `main` alone never publishes to either registry. A failed workflow can be rerun from GitHub Actions after fixing account or environment configuration. An already-published version is skipped only when its registry integrity matches the verified tarball; a different existing artifact fails the release. Registry errors other than a missing version also fail. Changing package contents requires a new version.
 
 wasmdbox's own code is [MIT licensed](../LICENSE). The bundled Wasmer SDK uses its own Modified MIT License. The build preserves the SDK's original `LICENSE` at `dist/vendor/wasmer-sdk/LICENSE`; package verification requires both license files to be present.
 

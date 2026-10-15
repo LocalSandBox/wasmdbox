@@ -94,3 +94,34 @@ jobs:
           RELEASE_VERSION: ${{ needs.release.outputs.version }}
           NPM_TAG: ${{ needs.release.outputs.npm-tag }}
         run: npm publish ".artifacts/npm/wasmdbox-${RELEASE_VERSION}.tgz" --ignore-scripts --access public --provenance --tag "$NPM_TAG"
+
+  publish-internal:
+    name: Publish verified tarball to npm.sea.com
+    needs: [release, validate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: npm-internal
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - uses: actions/download-artifact@v7
+        with:
+          name: npm-package
+          path: .artifacts
+      - name: Publish with masked registry credentials
+        env:
+          RELEASE_VERSION: ${{ needs.release.outputs.version }}
+          NPM_TAG: ${{ needs.release.outputs.npm-tag }}
+          NPM_SEA_USERNAME: ${{ secrets.NPM_SEA_USERNAME }}
+          NPM_SEA_PASSWORD: ${{ secrets.NPM_SEA_PASSWORD }}
+        run: |
+          set +x
+          node scripts/publish-internal.mjs
+      - name: Remove temporary internal npm configuration and cache
+        if: always()
+        run: rm -rf -- "${RUNNER_TEMP}"/wasmdbox-npm-internal-*
