@@ -101,16 +101,20 @@ test('cancellation stops real host writes and other sandboxes remain usable', { 
   const box = await Sandbox.create({ files, mounts: [{ hostPath: root, guestPath: '/mounted' }] });
   const other = await Sandbox.create({ files });
   t.after(async () => { await Promise.all([box.close(), other.close()]); await rm(root, { recursive: true, force: true }); });
-  await box.exec(command('info'), { check: true });
-  const controller = new AbortController();
-  const cancelled = box.exec(command('ticker'), { signal: controller.signal });
-  void cancelled.catch(() => {});
-  await waitForWrite(join(root, 'ticks.txt'), '');
-  controller.abort();
-  await assert.rejects(cancelled, { code: 'ABORTED' });
-  const stopped = await readFile(join(root, 'ticks.txt'), 'utf8');
-  await delay(150);
-  assert.equal(await readFile(join(root, 'ticks.txt'), 'utf8'), stopped);
+  // #558 is timing-sensitive: cover cold cancellation and repeated reuse.
+  // https://github.com/wasmerio/wasmer-sdk/issues/558
+  let stopped = '';
+  for (let round = 0; round < 20; round++) {
+    const controller = new AbortController();
+    const cancelled = box.exec(command('ticker'), { signal: controller.signal });
+    void cancelled.catch(() => {});
+    await waitForWrite(join(root, 'ticks.txt'), stopped);
+    controller.abort();
+    await assert.rejects(cancelled, { code: 'ABORTED' });
+    stopped = await readFile(join(root, 'ticks.txt'), 'utf8');
+    await delay(150);
+    assert.equal(await readFile(join(root, 'ticks.txt'), 'utf8'), stopped);
+  }
   const pending = box.exec(command('ticker'));
   void pending.catch(() => {});
   await waitForWrite(join(root, 'ticks.txt'), stopped);

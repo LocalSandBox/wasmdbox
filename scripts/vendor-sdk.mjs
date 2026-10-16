@@ -7,9 +7,11 @@ import { replacements as network } from '../patches/wasmer-sdk-network-0.19.1.mj
 import { replacements as workerFailures } from '../patches/wasmer-sdk-worker-failures-0.19.1.mjs';
 
 import { replacements as shutdown } from '../patches/wasmer-sdk-shutdown-0.19.1.mjs';
+import { replacements as traps } from '../patches/wasmer-sdk-traps-0.19.1.mjs';
 
 export const projectRoot = fileURLToPath(new URL('../', import.meta.url));
-export const patchGroups = { mounts, network, workerFailures, shutdown };
+export const patchGroups = { mounts, network, workerFailures, shutdown, traps };
+export const adapterNames = ['node-host-filesystem', 'node-tcp-proxy', 'host-filesystem', 'wasmer-host-traps'];
 const manifest = JSON.parse(await readFile(new URL('../patches/wasmer-sdk-0.19.1.integrity.json', import.meta.url), 'utf8'));
 
 /** Read only a byte-verified upstream package, never an already patched SDK. */
@@ -71,7 +73,7 @@ export async function materializeSdk({
   }
   // Validate and prepare everything before replacing the generated destination.
   if (adapters) {
-    for (const name of ['node-host-filesystem', 'node-tcp-proxy', 'host-filesystem']) {
+    for (const name of adapterNames) {
       files.set(`dist/${name}.js`, await readFile(join(adapterDirectory, `${name}.js`)));
     }
   }

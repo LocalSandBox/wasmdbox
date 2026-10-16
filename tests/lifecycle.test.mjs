@@ -6,6 +6,13 @@ import assert from 'node:assert/strict';
 
 const execute = promisify(execFile);
 const root = fileURLToPath(new URL('../', import.meta.url));
+test('close owns teardown when an in-flight spawn resumes', { timeout: 60_000 }, async () => {
+  const { stdout } = await execute(process.execPath, [
+    '--import', new URL('./fixtures/fault-loader.mjs', import.meta.url).href,
+    fileURLToPath(new URL('./fixtures/spawn-close-race.mjs', import.meta.url)),
+  ], { cwd: root, timeout: 50_000 });
+  assert.match(stdout, /pending spawn close ownership passed/);
+});
 for (const action of ['close', 'kill']) for (const mode of ['running', 'finished']) {
   test(`${action} releases a ${mode} process even when SDK output never reaches EOF`, { timeout: 60_000 }, async () => {
     const { stdout } = await execute(process.execPath, [

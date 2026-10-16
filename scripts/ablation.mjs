@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { materializeSdk, projectRoot } from './vendor-sdk.mjs';
+import { adapterNames, materializeSdk, projectRoot } from './vendor-sdk.mjs';
 
 const outputDirectory = join(projectRoot, '.artifacts/ablation');
 await mkdir(outputDirectory, { recursive: true });
@@ -10,7 +10,7 @@ const adapterDirectory = join(outputDirectory, 'compiled-adapters');
 await new Promise((resolve, reject) => {
   const child = spawn(process.execPath, [
     join(projectRoot, 'node_modules/typescript/bin/tsc'),
-    'src/internal/node-host-filesystem.ts', 'src/internal/node-tcp-proxy.ts', 'src/internal/host-filesystem.ts',
+    ...adapterNames.map(name => `src/internal/${name}.ts`),
     '--target', 'ES2023', '--module', 'NodeNext', '--moduleResolution', 'NodeNext',
     '--strict', '--skipLibCheck', '--types', 'node', '--outDir', adapterDirectory,
   ], { cwd: projectRoot, stdio: 'inherit' });
@@ -18,7 +18,8 @@ await new Promise((resolve, reject) => {
   child.once('exit', code => code === 0 ? resolve() : reject(new Error('Adapter compilation failed')));
 });
 const variants = [
-  { name: 'full', probes: ['mount', 'mount-failure', 'workspace', 'host-cwd', 'tcp', 'dns', 'listener', 'keepalive', 'fatal-worker'], expected: true },
+  { name: 'full', probes: ['mount', 'mount-failure', 'workspace', 'host-cwd', 'tcp', 'dns', 'listener', 'keepalive', 'fatal-worker', 'host-traps'], expected: true },
+  { name: 'no-host-traps', groups: ['mounts', 'network', 'workerFailures', 'shutdown'], probes: ['host-traps'], expected: false, failure: /guest intercepted WASIX exit/ },
   { name: 'stock-sdk', groups: [], adapters: false, nodeOnly: false, probes: ['mount'], expected: false, failure: /ENOENT/ },
   { name: 'no-client-filesystem', omit: ['mounts:dist/node.js:3'], probes: ['workspace', 'host-cwd'], expected: false, failure: /host filesystem|Host filesystem|No such file|not found|not available|not installed|failed|RuntimeError/i },
   { name: 'no-mount-worker', omit: ['mounts:dist/node-worker.js:0', 'mounts:dist/node-worker.js:1'], probes: ['mount'], expected: false, failure: /ENOENT/ },

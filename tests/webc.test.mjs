@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 import cbor from 'cbor';
 import { assertSelfContained, readWebcManifest } from '../dist/internal/webc.js';
+import { replacements as hostTraps } from '../patches/wasmer-sdk-traps-0.19.1.mjs';
 
 const hello = await readFile(new URL('../examples/local-package/hello.webc', import.meta.url));
 const hash = bytes => createHash('sha256').update(bytes).digest();
@@ -59,14 +60,22 @@ test('rejects command and filesystem references outside the container', () => {
   assert.throws(() => assertSelfContained(withManifest(cbor.encode(fs))), /External filesystem/);
 });
 
-test('the vendored engine retains the official npm WASM and bindings', async () => {
+test('the vendored engine retains official npm WASM and only audited binding edits', async () => {
   const integrity = JSON.parse(await readFile(new URL('../patches/wasmer-sdk-0.19.1.integrity.json', import.meta.url), 'utf8'));
   let wasm = 0;
   for (const [file, sha256] of Object.entries(integrity.files)) {
     if (!file.startsWith('pkg/') || file.endsWith('.map')) continue;
     const original = await readFile(new URL('../node_modules/@wasmer/sdk/' + file, import.meta.url));
     assert.equal(hash(original).toString('hex'), sha256);
-    const expected = /\.(?:js|ts)$/.test(file) ? Buffer.from(original.toString().replace(/\n\/\/# sourceMappingURL=.*(?:\n|$)/g, '\n')) : original;
+    let expected = original;
+    if (/\.(?:js|ts)$/.test(file)) {
+      let source = original.toString();
+      for (const [before, after] of hostTraps[file] ?? []) {
+        assert.equal(source.split(before).length, 2, `host trap patch anchor: ${file}`);
+        source = source.replace(before, after);
+      }
+      expected = Buffer.from(source.replace(/\n\/\/# sourceMappingURL=.*(?:\n|$)/g, '\n'));
+    }
     assert.deepEqual(await readFile(new URL('../dist/vendor/wasmer-sdk/' + file, import.meta.url)), expected, file);
     if (file.endsWith('.wasm')) wasm++;
   }

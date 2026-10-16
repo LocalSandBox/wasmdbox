@@ -2,9 +2,41 @@
 import workers, { isMainThread, workerData, parentPort } from 'node:worker_threads';
 import net from 'node:net';
 import { syncBuiltinESMExports } from 'node:module';
-import { writeFileSync } from 'node:fs';
+import { appendFileSync, writeFileSync } from 'node:fs';
 
 const mode = !isMainThread && workerData?.env?.WASMDBOX_TEST_FAULT;
+if (mode === 'spawn-close-race') {
+  const sdk = await import('../../dist/vendor/wasmer-sdk/dist/node.js');
+  const report = workerData.env.WASMDBOX_TEST_WAIT_REPORT;
+  let release;
+  let disposing = false;
+  const resumed = new Promise(resolve => { release = resolve; });
+  const spawn = sdk.Command.prototype.spawn;
+  sdk.Command.prototype.spawn = async function (...args) {
+    const process = await spawn.apply(this, args);
+    writeFileSync(report, 'spawn-pending\n');
+    await resumed;
+    return process;
+  };
+  const terminate = sdk.Wasmer.prototype.terminateOwnedRuntime;
+  sdk.Wasmer.prototype.terminateOwnedRuntime = async function (...args) {
+    disposing = true;
+    release();
+    // Let the pending spawn continuation run during the ownership handoff.
+    await new Promise(resolve => setImmediate(resolve));
+    return terminate.apply(this, args);
+  };
+  for (const method of ['kill', 'wait']) {
+    const original = sdk.Process.prototype[method];
+    sdk.Process.prototype[method] = function (...args) {
+      if (disposing) {
+        appendFileSync(report, `${method}-during-dispose\n`);
+        return new Promise(() => {});
+      }
+      return original.apply(this, args);
+    };
+  }
+}
 if (mode === 'runtime-error') {
   const NativeWorker = workers.Worker;
   let injected = false;
