@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { materializeSdk, projectRoot } from './vendor-sdk.mjs';
+import { adapterNames, materializeSdk, projectRoot } from './vendor-sdk.mjs';
 import { copyRuntimeAssets, verifyRuntimeAssets } from './runtime-assets.mjs';
 
 if (Number(process.versions.node.split('.')[0]) < 24) throw new Error('wasmdbox requires Node.js 24 or newer');
@@ -18,7 +18,7 @@ await new Promise((resolve, reject) => {
   child.once('error', reject);
   child.once('exit', (code, signal) => code === 0 ? resolve() : reject(new Error(`TypeScript build failed (${signal ?? code})`)));
 });
-for (const name of ['node-host-filesystem', 'node-tcp-proxy', 'host-filesystem']) {
+for (const name of adapterNames) {
   const source = await readFile(join(projectRoot, `dist/internal/${name}.js`), 'utf8');
   await writeFile(join(sdk.destination, `dist/${name}.js`), source.replace(/\n\/\/# sourceMappingURL=.*(?:\n|$)/g, '\n'));
 }

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -10,6 +10,7 @@ const box = await Sandbox.create({ mounts: [{ hostPath: root, guestPath: '/mount
 const results = [];
 const rounds = Number(process.argv[2] ?? 20);
 assert.ok(Number.isInteger(rounds) && rounds > 0 && rounds <= 100);
+await mkdir('.artifacts', { recursive: true });
 try {
   const guest = 'const fs = require("fs"); fs.appendFileSync("/mounted/ticks", process.env.ROUND + "\\n"); setInterval(() => fs.appendFileSync("/mounted/ticks", "tick\\n"), 50);';
   let previous = '';

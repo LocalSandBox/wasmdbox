@@ -33,7 +33,7 @@ jobs:
           WASMDBOX_RUNTIME_CPU_DIRECTORY: ${{ github.workspace }}/.artifacts/cancel-profiles
         run: |
           mkdir -p .artifacts/cancel-profiles
-          node --import ./tests/fixtures/runtime-order-observer.mjs tests/fixtures/cancel-cycle-repro.mjs 20
+          node --import ./tests/fixtures/runtime-order-observer.mjs tests/fixtures/cancel-cycle-repro.mjs 100
       - uses: actions/upload-artifact@v6
         if: always()
         with:
