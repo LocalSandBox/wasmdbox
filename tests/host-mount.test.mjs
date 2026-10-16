@@ -3,11 +3,9 @@ import { readFileSync } from 'node:fs';
 import { mkdtemp, mkdir, readFile, rm, symlink, link, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { Sandbox, SandboxError } from 'wasmdbox';
 
-const cacheDir = fileURLToPath(new URL('../.wasmer/', import.meta.url));
 const files = { '/workspace/probe.cjs': await readFile(new URL('./fixtures/mount-guest.cjs', import.meta.url)) };
 const command = mode => ['node', '/workspace/probe.cjs', mode];
 
@@ -41,7 +39,7 @@ test('public host mounts through real WASM workers', { timeout: 240_000 }, async
     }
   });
   async function create(options = {}) {
-    const box = await Sandbox.create({ cacheDir, files, mounts: [mount], ...options });
+    const box = await Sandbox.create({ files, mounts: [mount], ...options });
     boxes.add(box);
     return box;
   }

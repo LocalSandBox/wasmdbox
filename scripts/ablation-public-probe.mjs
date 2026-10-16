@@ -1,10 +1,9 @@
 import { join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 
 const [distribution] = process.argv.slice(2);
-const root = fileURLToPath(new URL('../', import.meta.url));
 const { Sandbox } = await import(pathToFileURL(join(distribution, 'index.js')).href);
-const sandbox = await Sandbox.create({ cacheDir: join(root, '.wasmer') });
+const sandbox = await Sandbox.create();
 let observation;
 const started = performance.now();
 try {

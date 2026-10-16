@@ -8,6 +8,8 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { generate } from 'selfsigned';
 import { projectRoot } from './vendor-sdk.mjs';
+import { bundledPackages } from '../dist/internal/bundled-packages.js';
+const { sources } = await bundledPackages();
 
 const [sdkDirectory, probe] = process.argv.slice(2);
 const sdkUrl = name => pathToFileURL(join(sdkDirectory, name)).href;
@@ -24,11 +26,11 @@ else throw new Error(`Unknown ablation probe: ${probe}`);
 console.log(JSON.stringify({ probe, passed: true }));
 
 function client(options = {}) {
-  return new Wasmer({ parallelism: 2, outputBytes: 16 * 1024, cache: { directory: join(projectRoot, '.wasmer') }, ...options });
+  return new Wasmer({ parallelism: 2, outputBytes: 16 * 1024, cache: false, ...options });
 }
 
 async function runtime(wasmer) {
-  return wasmer.packages.load('wasmer/edgejs-quickjs@=0.2.5', { signal: AbortSignal.timeout(45_000) });
+  return wasmer.packages.load(sources[0], { signal: AbortSignal.timeout(45_000) });
 }
 
 async function mountProbe() {

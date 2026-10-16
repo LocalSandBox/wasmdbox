@@ -50,7 +50,7 @@ export async function materializeSdk({
   const omitted = new Set(omit);
   const availableEdits = new Set();
   let edits = 0;
-  for (const group of groups) {
+  for (const group of new Set(groups)) {
     if (!(group in patchGroups)) throw new Error(`Unknown SDK patch group: ${group}`);
     for (const [path, replacements] of Object.entries(patchGroups[group])) {
       let source = files.get(path).toString('utf8');

@@ -1,14 +1,13 @@
 import { Sandbox } from 'wasmdbox';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+
 
 // Optional public HTTPS check using no real credentials. Local demos do not need this site.
 const url = new URL(process.env.PROXY_SMOKE_URL ?? 'https://example.com/');
 assert.equal(url.protocol, 'https:');
 assert.equal(url.username + url.password + url.hash, '');
 const sandbox = await Sandbox.create({
-  cacheDir: fileURLToPath(new URL('../../.wasmer/', import.meta.url)),
   files: { '/workspace/guest.cjs': await readFile(new URL('./online-guest.cjs', import.meta.url)) },
   env: { API_URL: url.href },
   network: {

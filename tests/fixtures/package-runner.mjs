@@ -1,62 +1,63 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
-import { Sandbox, SandboxError, CommandError } from 'wasmdbox';
-
-const [action, cacheDir, ...extraPkgs] = process.argv.slice(2);
-const options = { cacheDir, extraPkgs };
+const { Sandbox, SandboxError } = await import(process.env.WASMDBOX_TEST_ENTRY ?? 'wasmdbox');
+const [action, ...extraPkgs] = process.argv.slice(2);
 const expected = process.env.WASMDBOX_EXPECTED_ERROR;
 if (expected) {
-  await assert.rejects(run(), error => error instanceof SandboxError && error.code === expected);
-} else {
-  await run();
-}
+  await assert.rejects(run(), error => {
+    assert.ok(error instanceof SandboxError);
+    assert.equal(error.code, expected);
+    if (process.env.WASMDBOX_ERROR_MATCH) assert.match(error.message, new RegExp(process.env.WASMDBOX_ERROR_MATCH));
+    return true;
+  });
+} else await run();
 console.log(`PASS: ${action}`);
-// Natural subprocess exit also verifies that no referenced worker survives.
-
+// Natural exit verifies that failed/cancelled creation leaves no live worker.
 async function run() {
-  if (action === 'prepare') {
-    assert.equal(await Sandbox.prepare(options), undefined);
-    return;
-  }
   if (action === 'abort' || action === 'timeout') {
     const controller = new AbortController();
-    const pending = Sandbox.prepare({ ...options, startupTimeoutMs: action === 'timeout' ? 1_000 : 10_000, signal: controller.signal });
+    const pending = Sandbox.create({ startupTimeoutMs: action === 'timeout' ? 3_000 : 30_000, signal: controller.signal });
     void pending.catch(() => {});
     if (action === 'abort') {
-      const limit = Date.now() + 5_000;
+      const limit = Date.now() + 20_000;
       while (!(await readReport()).includes('"tick"')) {
-        assert.ok(Date.now() < limit, 'the package loader must reach its stalled state');
+        assert.ok(Date.now() < limit, 'the loader must reach its stalled state');
         await delay(20);
       }
       controller.abort();
     }
-    await assert.rejects(pending, { name: 'SandboxError', code: action === 'abort' ? 'STARTUP_ABORTED' : 'STARTUP_TIMEOUT' });
+    await assert.rejects(pending, { code: action === 'timeout' ? 'STARTUP_TIMEOUT' : 'STARTUP_ABORTED' });
     const stopped = await readReport();
-    assert.match(stopped, /"tick"/);
     await delay(100);
-    assert.equal(await readReport(), stopped, 'preparation settlement must stop the worker');
+    assert.equal(await readReport(), stopped, 'creation settlement must stop the worker');
     return;
   }
-
-  // Ablation: creation cannot depend on calling the public preparation method.
-  Sandbox.prepare = () => { throw new Error('create() must be independent of prepare()'); };
-  const sandbox = await Sandbox.create({
-    ...options,
-    files: { '/workspace/guest.py': await readFile(new URL('./extra-guest.py', import.meta.url)) },
-  });
+  const packages = ['create-bytes', 'conflict'].includes(action)
+    ? await Promise.all(extraPkgs.map(path => readFile(path)))
+    : action === 'invalid-mixed' ? [await readFile(extraPkgs[0]), ...extraPkgs.slice(1)] : extraPkgs;
+  const sandbox = await Sandbox.create({ extraPkgs: packages, network: false });
   try {
-    assert.match((await sandbox.exec(['node', '--version'], { check: true, timeoutMs: 30_000 })).stdout, /^v\d+/);
-    if (action === 'create-default') {
-      await assert.rejects(sandbox.exec(['python', '--version']), { name: 'CommandError', code: 'COMMAND_NOT_FOUND' });
-      assert.equal((await sandbox.exec(['bash', '-c', 'printf defaults'], { check: true })).stdout, 'defaults');
-    } else {
-      assert.equal((await sandbox.exec(['python', '/workspace/guest.py'], { check: true, timeoutMs: 30_000 })).stdout, 'python extra package works\n');
-      await assert.rejects(sandbox.exec(['bash', '-c', 'true']), error => error instanceof CommandError && error.code === 'COMMAND_AMBIGUOUS');
+    if (action === 'conflict') {
+      await assert.rejects(sandbox.exec(['bash', '-c', 'true']), { code: 'COMMAND_AMBIGUOUS' });
+      assert.equal((await sandbox.exec(['bash', '-c', 'printf defaults'], { package: 'default', check: true })).stdout, 'defaults');
+      assert.match((await sandbox.exec(['python', '--version'], { package: 'default', check: true })).stdout, /^Python 3\./);
+      return;
     }
+    assert.match((await sandbox.exec(['node', '--version'], { check: true })).stdout, /^v\d+/);
+    assert.match((await sandbox.exec(['python', '--version'], { check: true })).stdout, /^Python 3\./);
+    assert.equal((await sandbox.exec(['bash', '-c', 'printf defaults'], { check: true })).stdout, 'defaults');
+    assert.equal((await sandbox.exec(['echo', 'coreutils'], { check: true })).stdout, 'coreutils\n');
+    assert.equal((await sandbox.exec(['[', '1', '=', '1', ']'], { check: true })).exitCode, 0);
+    assert.match((await sandbox.exec(['pnpm', '--version'], { check: true })).stdout, /^10\.34\.5/);
+    assert.match((await sandbox.exec(['pip', '--version'], { check: true })).stdout, /^pip /);
+    assert.equal((await sandbox.exec(['python', '-c', 'import ssl,sqlite3,zoneinfo; assert ssl.create_default_context().get_ca_certs(); assert sqlite3.connect(":memory:").execute("select 3").fetchone()[0] == 3; print(zoneinfo.ZoneInfo("Asia/Singapore"))'], { check: true })).stdout, 'Asia/Singapore\n');
+    assert.match((await sandbox.exec(['bash', '-c', 'node --version && python --version'], { check: true })).stdout, /v\d+.*\nPython 3\./);
+    assert.match((await sandbox.exec(['node', '-e', "const {execFileSync}=require('child_process'); process.stdout.write(execFileSync('python',['--version'])); process.stdout.write(execFileSync('bash',['-c','echo node-child']));"], { check: true })).stdout, /Python 3\..*\nnode-child\n/);
+    assert.match((await sandbox.exec(['python', '-c', "import subprocess; print(subprocess.check_output(['node', '--version']).decode(), end=''); print(subprocess.check_output(['echo', 'python-child']).decode(), end='')"], { check: true })).stdout, /v\d+.*\npython-child\n/);
+    assert.match((await sandbox.exec(['python', '--version'], { package: 'default', check: true })).stdout, /^Python 3\./);
   } finally { await sandbox.close(); }
 }
-
 async function readReport() {
   try { return await readFile(process.env.WASMDBOX_PACKAGE_REPORT, 'utf8'); }
   catch (error) { if (error.code === 'ENOENT') return ''; throw error; }

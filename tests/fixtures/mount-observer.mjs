@@ -6,7 +6,7 @@ import { isMainThread, threadId, workerData } from 'node:worker_threads';
 
 const report = process.env.WASMDBOX_MOUNT_REPORT;
 const target = process.env.WASMDBOX_MOUNT_OBSERVE;
-if (!isMainThread && workerData?.mode === 'sandbox' && report && target) {
+if (!isMainThread && workerData && Object.hasOwn(workerData, 'runtimeDirectory') && report && target) {
   const { openSync, closeSync, fstatSync, appendFileSync } = fs;
   const expected = fs.statSync(target, { bigint: true });
   const handles = new Map();

@@ -37,9 +37,8 @@ jobs:
       - run: npm run typecheck
       - name: Run standalone examples
         run: npm run demo
-      - name: Run preparation, extra-package, installation and public HTTPS examples
+      - name: Run Python, installation and public HTTPS examples
         run: |
-          node examples/prepare/main.js
           node examples/extra-packages/main.js
           npm run demo:install
           npm run test:proxy:online
@@ -97,9 +96,8 @@ jobs:
         run: node --test --test-concurrency=1 tests/*.test.mjs
       - name: Run default standalone examples
         run: npm run demo
-      - name: Run preparation, extra-package, installation and public HTTPS examples
+      - name: Run Python, installation and public HTTPS examples
         run: |
-          node examples/prepare/main.js
           node examples/extra-packages/main.js
           npm run demo:install
           npm run test:proxy:online

@@ -2,8 +2,11 @@ import { spawn } from 'node:child_process';
 import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { materializeSdk, projectRoot } from './vendor-sdk.mjs';
+import { copyRuntimeAssets, verifyRuntimeAssets } from './runtime-assets.mjs';
 
 if (Number(process.versions.node.split('.')[0]) < 24) throw new Error('wasmdbox requires Node.js 24 or newer');
+
+const runtimeLock = await verifyRuntimeAssets();
 
 await rm(join(projectRoot, 'dist'), { recursive: true, force: true });
 // Public declaration imports can resolve the private SDK during compilation.
@@ -19,4 +22,5 @@ for (const name of ['node-host-filesystem', 'node-tcp-proxy', 'host-filesystem']
   const source = await readFile(join(projectRoot, `dist/internal/${name}.js`), 'utf8');
   await writeFile(join(sdk.destination, `dist/${name}.js`), source.replace(/\n\/\/# sourceMappingURL=.*(?:\n|$)/g, '\n'));
 }
+await copyRuntimeAssets(join(projectRoot, 'dist/assets'), runtimeLock);
 console.log(`Built wasmdbox with private Wasmer SDK ${sdk.sdk} (${sdk.edits} runtime edits); dependencies were not modified`);

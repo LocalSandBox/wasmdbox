@@ -1,12 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
 import { Sandbox } from 'wasmdbox';
 
 // This package is bundled locally and has never been published to a registry.
 const webcBytes = await readFile(new URL('./hello.webc', import.meta.url));
 const sandbox = await Sandbox.create({
-  cacheDir: fileURLToPath(new URL('../../.wasmer/', import.meta.url)),
   extraPkgs: [webcBytes],
   network: false,
 });

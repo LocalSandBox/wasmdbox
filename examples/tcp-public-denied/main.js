@@ -1,5 +1,4 @@
 import { Sandbox } from 'wasmdbox';
-import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 
 // Raw TCP connections to public addresses are disabled. Guest code is in guest.cjs.
@@ -7,7 +6,6 @@ let sandbox;
 
 try {
   sandbox = await Sandbox.create({
-    cacheDir: fileURLToPath(new URL('../../.wasmer/', import.meta.url)),
     files: {
       '/workspace/app/case.cjs': await readFile(new URL('./guest.cjs', import.meta.url)),
     },

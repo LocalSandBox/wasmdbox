@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { readFile, mkdtemp, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
+import { readFile, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import net from 'node:net';
 import https from 'node:https';
 import { generate } from 'selfsigned';
@@ -70,7 +69,6 @@ test('public Sandbox real WASM: Node/Bash fetch, scoped secrets, TCP, DNS and po
   };
   async function create(networkOptions, options = {}) {
     const box = await Sandbox.create({
-      cacheDir: fileURLToPath(new URL('../.wasmer/', import.meta.url)),
       files: { '/workspace/probe.cjs': source },
       network: networkOptions,
       startupTimeoutMs: 180_000, ...options,

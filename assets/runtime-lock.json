@@ -1,0 +1,1393 @@
+{
+  "schemaVersion": 2,
+  "packages": [
+    {
+      "name": "wasmer/edgejs-quickjs",
+      "version": "0.2.5",
+      "file": "packages/wasmer-edgejs-quickjs-0.2.5.webc",
+      "sha256": "812c1d8078e47291e1f024588d818aed4fedeaa3b8db03e411b5ea3a540ab124",
+      "size": 85471775,
+      "url": "https://cdn.wasmer.io/webcimages/812c1d8078e47291e1f024588d818aed4fedeaa3b8db03e411b5ea3a540ab124.webc",
+      "license": "MIT",
+      "licenseFile": "licenses/wasmer-edgejs-quickjs.txt",
+      "dependencies": {
+        "wasmer/bash": "wasmer/bash@^1.0.25"
+      },
+      "manifest": {
+        "use": {
+          "wasmer/bash": "wasmer/bash@^1.0.25"
+        },
+        "package": {
+          "wapm": {},
+          "fs": [
+            {
+              "from": null,
+              "volume_name": "/etc",
+              "mount_path": "/etc"
+            },
+            {
+              "from": null,
+              "volume_name": "/npm",
+              "mount_path": "/npm"
+            },
+            {
+              "from": null,
+              "volume_name": "/pnpm",
+              "mount_path": "/pnpm"
+            },
+            {
+              "from": null,
+              "volume_name": "/ssl-certs",
+              "mount_path": "/usr/local/ssl"
+            }
+          ]
+        },
+        "atoms": {
+          "edge": {
+            "kind": "https://webc.org/kind/wasm",
+            "signature": "sha256:AaKBZA6f63152KWJZE9+/izQ/T5eRyrZHxKztuCwI+A=",
+            "annotations": {
+              "wasm": {
+                "features": [
+                  "simd",
+                  "bulk-memory",
+                  "reference-types",
+                  "multi-value",
+                  "threads",
+                  "exception-handling",
+                  "multi-memory"
+                ]
+              }
+            }
+          }
+        },
+        "commands": {
+          "edge": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "edge"
+              },
+              "wasi": {
+                "atom": "edge"
+              }
+            }
+          },
+          "node": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "edge"
+              },
+              "wasi": {
+                "atom": "edge"
+              }
+            }
+          },
+          "pnpm": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "edge"
+              },
+              "wasi": {
+                "atom": "edge",
+                "main-args": [
+                  "/pnpm/edge-pnpm.cjs"
+                ],
+                "env": [
+                  "HOME=/tmp",
+                  "PATH=/bin:/usr/bin",
+                  "npm_config_network_concurrency=4",
+                  "npm_config_node_linker=hoisted",
+                  "npm_config_npm_path=/bin/edge-npm-internal",
+                  "npm_config_package_import_method=copy",
+                  "npm_config_store_dir=/tmp/.pnpm-store",
+                  "npm_config_update_notifier=false"
+                ]
+              }
+            }
+          },
+          "npm": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "edge"
+              },
+              "wasi": {
+                "atom": "edge",
+                "main-args": [
+                  "/pnpm/edge-pnpm.cjs"
+                ],
+                "env": [
+                  "HOME=/tmp",
+                  "PATH=/bin:/usr/bin",
+                  "npm_config_network_concurrency=4",
+                  "npm_config_node_linker=hoisted",
+                  "npm_config_npm_path=/bin/edge-npm-internal",
+                  "npm_config_package_import_method=copy",
+                  "npm_config_store_dir=/tmp/.pnpm-store",
+                  "npm_config_update_notifier=false"
+                ]
+              }
+            }
+          },
+          "edge-npm-internal": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "edge"
+              },
+              "wasi": {
+                "atom": "edge",
+                "main-args": [
+                  "/npm/bin/npm-cli.js"
+                ],
+                "env": [
+                  "HOME=/tmp",
+                  "PATH=/bin:/usr/bin",
+                  "npm_config_update_notifier=false"
+                ]
+              }
+            }
+          }
+        },
+        "entrypoint": "edge"
+      }
+    },
+    {
+      "name": "python/python",
+      "version": "3.13.20",
+      "file": "packages/python-python-3.13.20.webc",
+      "sha256": "a9fa8202f1bf6a4eca8d31ee5f2b1970c8f45af5c5520cc954d28a133333d8e7",
+      "size": 61744083,
+      "url": "https://cdn.wasmer.io/webcimages/a9fa8202f1bf6a4eca8d31ee5f2b1970c8f45af5c5520cc954d28a133333d8e7.webc",
+      "license": "Python-2.0",
+      "licenseFile": "licenses/python-python.txt",
+      "dependencies": {
+        "wasmer/bash": "wasmer/bash@*"
+      },
+      "manifest": {
+        "use": {
+          "wasmer/bash": "wasmer/bash@*"
+        },
+        "package": {
+          "wapm": {
+            "license": "Python-2.0",
+            "readme": {
+              "volume": "metadata",
+              "path": "/README.md"
+            }
+          },
+          "fs": [
+            {
+              "from": null,
+              "volume_name": "/fs/etc/ssl",
+              "mount_path": "/etc/ssl"
+            },
+            {
+              "from": null,
+              "volume_name": "/fs/nix/store/vlgjd2179ahfh509p1aid8fl22bw8ri3-tzdata-2026c",
+              "mount_path": "/nix/store/vlgjd2179ahfh509p1aid8fl22bw8ri3-tzdata-2026c"
+            },
+            {
+              "from": null,
+              "volume_name": "/fs/nix/store/fr4ww7j073zclm9p43z5vx5720f3l2ci-openssl-static-wasm32-unknown-wasi-3.6.3",
+              "mount_path": "/nix/store/fr4ww7j073zclm9p43z5vx5720f3l2ci-openssl-static-wasm32-unknown-wasi-3.6.3"
+            },
+            {
+              "from": null,
+              "volume_name": "/fs/nix/store/wf0002v5izqcb7kg59n8cilx58lcp373-python3-static-wasm32-unknown-wasi-3.13.15",
+              "mount_path": "/nix/store/wf0002v5izqcb7kg59n8cilx58lcp373-python3-static-wasm32-unknown-wasi-3.13.15"
+            },
+            {
+              "from": null,
+              "volume_name": "/fs/nix/store/wlw01rhlcm43s2k900xyijba456vyjhb-ncurses-static-wasm32-unknown-wasi-6.6",
+              "mount_path": "/nix/store/wlw01rhlcm43s2k900xyijba456vyjhb-ncurses-static-wasm32-unknown-wasi-6.6"
+            }
+          ]
+        },
+        "atoms": {
+          "python": {
+            "kind": "https://webc.org/kind/wasm",
+            "signature": "sha256:P8SHkuj2ZzM6Y5f9nOaWGlp2zWkWDFr2rwdKMsC68/Q=",
+            "annotations": {
+              "wasm": {
+                "features": [
+                  "simd",
+                  "bulk-memory",
+                  "reference-types",
+                  "multi-value",
+                  "threads",
+                  "exception-handling",
+                  "multi-memory"
+                ]
+              }
+            }
+          }
+        },
+        "commands": {
+          "python3.13": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "python"
+              },
+              "wasi": {
+                "atom": "python",
+                "env": [
+                  "PYTHONEXECUTABLE=/bin/python3.13",
+                  "SSL_CERT_DIR=/etc/ssl/certs",
+                  "SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt"
+                ]
+              }
+            }
+          },
+          "python3": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "python"
+              },
+              "wasi": {
+                "atom": "python",
+                "env": [
+                  "PYTHONEXECUTABLE=/bin/python3.13",
+                  "SSL_CERT_DIR=/etc/ssl/certs",
+                  "SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt"
+                ]
+              }
+            }
+          },
+          "python": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "python"
+              },
+              "wasi": {
+                "atom": "python",
+                "env": [
+                  "PYTHONEXECUTABLE=/bin/python3.13",
+                  "SSL_CERT_DIR=/etc/ssl/certs",
+                  "SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt"
+                ]
+              }
+            }
+          },
+          "pip": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "python"
+              },
+              "wasi": {
+                "atom": "python",
+                "main-args": [
+                  "-m",
+                  "pip"
+                ],
+                "env": [
+                  "PYTHONEXECUTABLE=/bin/python3.13",
+                  "SSL_CERT_DIR=/etc/ssl/certs",
+                  "SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt"
+                ]
+              }
+            }
+          }
+        },
+        "entrypoint": "python3.13"
+      }
+    },
+    {
+      "name": "wasmer/bash",
+      "version": "1.0.25",
+      "file": "packages/wasmer-bash-1.0.25.webc",
+      "sha256": "059606d132e2e6bc1afe3b432ee64dcb1b1b059815c8bb213cf3b24798ef21e1",
+      "size": 1870786,
+      "url": "https://cdn.wasmer.io/webcimages/059606d132e2e6bc1afe3b432ee64dcb1b1b059815c8bb213cf3b24798ef21e1.webc",
+      "license": "GNU",
+      "licenseFile": "licenses/wasmer-bash.txt",
+      "dependencies": {
+        "wasmer/coreutils": "wasmer/coreutils@^1.0.19"
+      },
+      "manifest": {
+        "use": {
+          "wasmer/coreutils": "wasmer/coreutils@^1.0.19"
+        },
+        "package": {
+          "wapm": {
+            "license": "GNU"
+          }
+        },
+        "atoms": {
+          "bash": {
+            "kind": "https://webc.org/kind/wasm",
+            "signature": "sha256:Wzep+V/KUPVQJLf8N7eG+oACTlUyAmbLGZNnKdJMcM4=",
+            "annotations": {
+              "wasm": {
+                "features": [
+                  "simd",
+                  "bulk-memory",
+                  "reference-types",
+                  "multi-value",
+                  "threads"
+                ]
+              }
+            }
+          }
+        },
+        "commands": {
+          "bash": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "bash"
+              },
+              "wasi": {
+                "atom": "bash"
+              }
+            }
+          },
+          "sh": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "bash"
+              },
+              "wasi": {
+                "atom": "bash"
+              }
+            }
+          }
+        },
+        "entrypoint": "bash"
+      }
+    },
+    {
+      "name": "wasmer/coreutils",
+      "version": "1.0.27",
+      "file": "packages/wasmer-coreutils-1.0.27.webc",
+      "sha256": "35028c4e6b9fa8cccdffdcab2007d1df3af31b3f2b22fb890d022d7ae723bbd3",
+      "size": 12703522,
+      "url": "https://cdn.wasmer.io/webcimages/35028c4e6b9fa8cccdffdcab2007d1df3af31b3f2b22fb890d022d7ae723bbd3.webc",
+      "license": "MIT",
+      "licenseFile": "licenses/wasmer-coreutils.txt",
+      "dependencies": {},
+      "manifest": {
+        "package": {
+          "wapm": {
+            "license": "MIT",
+            "readme": {
+              "volume": "metadata",
+              "path": "/WASIX.md"
+            },
+            "repository": "https://github.com/wasix-org/coreutils"
+          },
+          "fs": [
+            {
+              "from": null,
+              "volume_name": "/.wasix/licenses",
+              "mount_path": "/opt/coreutils/licenses"
+            }
+          ]
+        },
+        "atoms": {
+          "coreutils": {
+            "kind": "https://webc.org/kind/wasm",
+            "signature": "sha256:bPkfoRzjcCPaEhQ6q2YIKflLgl0AWpwOYpccFczVE4c=",
+            "annotations": {
+              "wasm": {
+                "features": [
+                  "simd",
+                  "bulk-memory",
+                  "reference-types",
+                  "multi-value",
+                  "threads",
+                  "exception-handling",
+                  "multi-memory"
+                ]
+              }
+            }
+          }
+        },
+        "commands": {
+          "coreutils": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "[": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "arch": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "b2sum": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "base32": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "base64": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "basename": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "basenc": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "cat": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "cksum": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "comm": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "cp": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "csplit": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "cut": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "date": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "dd": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "dir": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "dircolors": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "dirname": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "echo": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "env": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "expand": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "expr": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "factor": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "false": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "fmt": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "fold": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "head": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "hostid": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "join": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "link": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "ln": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "ls": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "md5sum": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "mkdir": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "mktemp": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "mv": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "nice": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "nl": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "nohup": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "nproc": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "numfmt": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "od": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "paste": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "pathchk": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "pr": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "printenv": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "printf": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "ptx": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "pwd": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "readlink": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "realpath": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "rm": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "rmdir": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "seq": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "sha1sum": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "sha224sum": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "sha256sum": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "sha384sum": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "sha512sum": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "shred": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "shuf": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "sleep": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "sort": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "split": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "sum": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "tac": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "tail": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "tee": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "test": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "touch": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "tr": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "true": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "truncate": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "tsort": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "tty": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "uname": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "unexpand": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "uniq": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "unlink": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "vdir": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "wc": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          },
+          "yes": {
+            "runner": "https://webc.org/runner/wasi",
+            "annotations": {
+              "atom": {
+                "name": "coreutils"
+              },
+              "wasi": {
+                "atom": "coreutils"
+              }
+            }
+          }
+        },
+        "entrypoint": "coreutils"
+      }
+    }
+  ],
+  "bundleTool": {
+    "name": "wasmer",
+    "version": "7.4.2"
+  },
+  "runtime": {
+    "size": 161780398,
+    "sha256": "bc663962a183243d088ab59095afafa4e18414bcc262daeead03d581b5d31c35",
+    "chunks": [
+      {
+        "file": "runtime/runtime-001.bin",
+        "size": 50331648,
+        "sha256": "52343bd35da116aa1f54a7894a973c3efecbc61ea05890a9b9e6896439d8d082"
+      },
+      {
+        "file": "runtime/runtime-002.bin",
+        "size": 50331648,
+        "sha256": "53f05c33a94e56181e559421cbec14a34e8995512ca4f75cd2ef7c37b923b11f"
+      },
+      {
+        "file": "runtime/runtime-003.bin",
+        "size": 50331648,
+        "sha256": "8f258a1dd65f29b741cc6ba2c062bf298221d7dfac7e04deb3b33d7b5bd5cf3a"
+      },
+      {
+        "file": "runtime/runtime-004.bin",
+        "size": 10785454,
+        "sha256": "a413b1020ed0337575510b2acedf2e2969cc771f7c40bbaa4f6c73c33d69e5de"
+      }
+    ],
+    "sourceLockSha256": "48fcd072daf9f777105b89376a97d1345b9bd6900be311a2947b7e50b3fc47b1",
+    "notices": {
+      "NOTICE.md": "3f7e4022cefb6ea6ad49d81f9ab6e5885af7c25731f921e9fc30470e904f822a",
+      "licenses/wasmer-edgejs-quickjs.txt": "517826cd682bd10acc3b2aa8dc947ac5f6ddc9650736067c7a639794d0bdb318",
+      "licenses/python-python.txt": "78b12c3a81360b357002334f0e70ea0e92eebf7a9b358805c03c48484945f3bb",
+      "licenses/wasmer-bash.txt": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+      "licenses/wasmer-coreutils.txt": "89c11734d621834686b696d57239aaf1fe2f54574cb45574297202d2d6d6ce26"
+    },
+    "atoms": 4,
+    "commands": 94,
+    "files": 12209,
+    "featureChanges": {
+      "bash": {
+        "original": [
+          "simd",
+          "bulk-memory",
+          "reference-types",
+          "multi-value",
+          "threads"
+        ],
+        "rebuilt": [
+          "simd",
+          "bulk-memory",
+          "reference-types",
+          "multi-value",
+          "threads",
+          "multi-memory"
+        ]
+      }
+    }
+  }
+}

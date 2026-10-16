@@ -4,10 +4,8 @@ import { mkdtemp, mkdir, readFile, readdir, rm, writeFile, link, stat, chmod } f
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { Sandbox } from 'wasmdbox';
 
-const cacheDir = fileURLToPath(new URL('../.wasmer/', import.meta.url));
 const node = script => ['node', '-e', script];
 
 // Each platform probe owns its files and sandbox. Command deadlines make hangs
@@ -30,8 +28,7 @@ async function platformWorkspace(t) {
       return releaseLock;
     },
     async create() {
-      box = await Sandbox.create({
-        cacheDir, network: false, startupTimeoutMs: 45_000, signal: t.signal,
+      box = await Sandbox.create({ network: false, startupTimeoutMs: 45_000, signal: t.signal,
         mounts: [{ hostPath: root, guestPath: '/workspace' }],
       });
       return (argv, options = {}) => box.exec(argv, {
@@ -292,7 +289,7 @@ test('host-backed workspace real WASM contract', { timeout: 240_000 }, async t =
   const root = await mkdtemp(join(tmpdir(), 'wasmdbox-workspace-'));
   const mount = { hostPath: root, guestPath: '/workspace' };
   t.after(() => rm(root, { recursive: true, force: true }));
-  const create = options => Sandbox.create({ cacheDir, mounts: [mount], ...options });
+  const create = options => Sandbox.create({ mounts: [mount], ...options });
   async function withBox(options, inspect) {
     const box = await create(options);
     try { return await inspect(box); } finally { await box.close(); }

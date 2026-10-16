@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { Sandbox } from 'wasmdbox';
 
-const [action, cacheDir, variant = 'buffer'] = process.argv.slice(2);
+const [action, variant = 'buffer'] = process.argv.slice(2);
 const original = await readFile(new URL('../../examples/local-package/hello.webc', import.meta.url));
 let bytes;
 switch (variant) {
@@ -25,15 +25,10 @@ switch (variant) {
   default: throw new Error(`Unknown byte variant: ${variant}`);
 }
 
-const runtime = 'wasmer/edgejs-quickjs@=0.2.5';
 const extraPkgs = action === 'create-default' ? []
-  : variant === 'duplicates' ? [runtime, bytes, runtime, bytes, new Uint8Array(bytes)]
-  : [runtime, bytes];
-const method = action === 'prepare' ? 'prepare' : 'create';
-if (method === 'create') {
-  Sandbox.prepare = () => { throw new Error('create must not depend on prepare'); };
-}
-const pending = Sandbox[method]({ cacheDir, extraPkgs, network: false });
+  : variant === 'duplicates' ? [bytes, bytes, new Uint8Array(bytes)]
+  : [bytes];
+const pending = Sandbox.create({ extraPkgs, network: false });
 // This runs before startup yields back to the worker. Both content and list
 // changes must leave the captured package intact, even for shared memory.
 assert.deepEqual(bytes, variant === 'corrupt' ? new Uint8Array([1, 2, 3])
@@ -43,9 +38,7 @@ extraPkgs.length = 0;
 assert.ok(bytes.byteLength > 0, 'startup must not detach caller buffers');
 assert.ok(bytes.every(byte => byte === 0), 'caller retains a usable buffer');
 if (variant === 'corrupt') {
-  await assert.rejects(pending, { name: 'SandboxError', code: method === 'prepare' ? 'PREPARE_FAILED' : 'CREATE_FAILED' });
-} else if (method === 'prepare') {
-  assert.equal(await pending, undefined);
+  await assert.rejects(pending, { name: 'SandboxError', code: 'CREATE_FAILED' });
 } else {
   const sandbox = await pending;
   try {

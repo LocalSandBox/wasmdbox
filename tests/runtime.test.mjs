@@ -4,17 +4,15 @@ import { readFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { fileURLToPath } from 'node:url';
 import { Sandbox, SandboxError, CommandError } from 'wasmdbox';
 
-const cacheDir = fileURLToPath(new URL('../.wasmer/', import.meta.url));
 const source = await readFile(new URL('./fixtures/runtime.cjs', import.meta.url));
 const files = { '/workspace/probe.cjs': source };
 const command = mode => ['node', '/workspace/probe.cjs', mode];
 
 test('public command, output, stdin and lifecycle contract', { timeout: 240_000 }, async t => {
   process.env.WASMDBOX_HOST_ONLY = 'must not enter guest';
-  const box = await Sandbox.create({ cacheDir, files, env: { DEMO_VALUE: 'base' } });
+  const box = await Sandbox.create({ files, env: { DEMO_VALUE: 'base' } });
   t.after(() => box.close());
   t.after(() => { delete process.env.WASMDBOX_HOST_ONLY; });
   assert.equal('fs' in box, false);
@@ -87,7 +85,7 @@ test('public command, output, stdin and lifecycle contract', { timeout: 240_000 
 });
 
 test('cold command timeout cannot return a late success', { timeout: 240_000 }, async t => {
-  const box = await Sandbox.create({ cacheDir });
+  const box = await Sandbox.create();
   t.after(() => box.close());
   const before = Date.now();
   await assert.rejects(box.exec(['bash', '-c', 'sleep 1'], { timeoutMs: 20 }), error => {
@@ -100,8 +98,8 @@ test('cold command timeout cannot return a late success', { timeout: 240_000 }, 
 
 test('cancellation stops real host writes and other sandboxes remain usable', { timeout: 240_000 }, async t => {
   const root = await mkdtemp(join(tmpdir(), 'wasmdbox-lifecycle-'));
-  const box = await Sandbox.create({ cacheDir, files, mounts: [{ hostPath: root, guestPath: '/mounted' }] });
-  const other = await Sandbox.create({ cacheDir, files });
+  const box = await Sandbox.create({ files, mounts: [{ hostPath: root, guestPath: '/mounted' }] });
+  const other = await Sandbox.create({ files });
   t.after(async () => { await Promise.all([box.close(), other.close()]); await rm(root, { recursive: true, force: true }); });
   await box.exec(command('info'), { check: true });
   const controller = new AbortController();
@@ -128,11 +126,11 @@ test('cancellation stops real host writes and other sandboxes remain usable', { 
 test('creation validation, deadline, cancellation and mount failure clean up', { timeout: 240_000 }, async () => {
   await assert.rejects(Sandbox.create({ startupTimeoutMs: -1 }), { code: 'INVALID_OPTIONS' });
   await assert.rejects(Sandbox.create({ signal: {} }), { code: 'INVALID_OPTIONS' });
-  await assert.rejects(Sandbox.create({ cacheDir, signal: AbortSignal.abort() }), { code: 'STARTUP_ABORTED' });
-  await assert.rejects(Sandbox.create({ cacheDir, startupTimeoutMs: 0 }), { code: 'STARTUP_TIMEOUT' });
-  await assert.rejects(Sandbox.create({ cacheDir, mounts: [{ hostPath: '/wasmdbox-missing-directory', guestPath: '/mounted' }] }), { code: 'CREATE_FAILED' });
-  await assert.rejects(Sandbox.create({ cacheDir, network: { secrets: { API_KEY: null } } }), { code: 'CREATE_FAILED' });
-  const box = await Sandbox.create({ cacheDir });
+  await assert.rejects(Sandbox.create({ signal: AbortSignal.abort() }), { code: 'STARTUP_ABORTED' });
+  await assert.rejects(Sandbox.create({ startupTimeoutMs: 0 }), { code: 'STARTUP_TIMEOUT' });
+  await assert.rejects(Sandbox.create({ mounts: [{ hostPath: '/wasmdbox-missing-directory', guestPath: '/mounted' }] }), { code: 'CREATE_FAILED' });
+  await assert.rejects(Sandbox.create({ network: { secrets: { API_KEY: null } } }), { code: 'CREATE_FAILED' });
+  const box = await Sandbox.create();
   await assert.rejects(box.exec(['node'], { signal: {} }), { code: 'INVALID_OPTIONS' });
   await assert.rejects(box.spawn(['node'], null), { code: 'INVALID_OPTIONS' });
   await box.close();

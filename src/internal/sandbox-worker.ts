@@ -5,14 +5,15 @@ import type { Wasmer, Sandbox as WasmerSandbox, Process as WasmerProcess, Packag
 import { startProxy } from './proxy.js';
 import { deferred, type ParentMessage, type WorkerMessage, type WorkerOptions, type WireCommandOptions } from './protocol.js';
 import type { SandboxErrorCode } from '../errors.js';
+import { bundledPackages } from './bundled-packages.js';
 
 const port = parentPort!;
 const options = workerData as WorkerOptions;
-const DEFAULT_RUNTIME = 'wasmer/edgejs-quickjs@=0.2.5';
 const INTERNAL = '/.wasmdbox';
 const CA = `${INTERNAL}/ca.pem`;
 let client: Wasmer | undefined;
-let defaultPackage: WasmerPackage | undefined;
+const defaultCommands = new Map<string, WasmerPackage>();
+const extraCommands = new Set<string>();
 let sandbox: WasmerSandbox | undefined;
 let proxy: Awaited<ReturnType<typeof startProxy>> | undefined;
 let failed = false;
@@ -49,21 +50,26 @@ async function initialize() {
       if (!path.startsWith('/workspace/') || path.includes('\0') || path.includes('\\') || path.split('/').includes('..')) throw new Error('Invalid or reserved guest file path');
       if (typeof contents !== 'string' && !(contents instanceof Uint8Array)) throw new Error('Invalid guest file contents');
     }
-    const network = options.mode === 'sandbox' && options.network;
+    const resources = await bundledPackages(options.extraPkgs);
+    const network = options.network;
     if (network) proxy = await startProxy(network, () => fatal('PROXY_FAILED', 'Managed network proxy failed'));
     if (failed) return;
     const sdkOptions = {
       parallelism: 2, outputBytes: 512 * 1024,
-      cache: { directory: options.cacheDir! },
+      cache: false as const,
       ...(proxy ? { tcpProxy: { host: proxy.host, port: proxy.port } } : {}),
     };
     client = new sdk.Wasmer(sdkOptions);
-    const sources = [...new Set([DEFAULT_RUNTIME, ...(options.extraPkgs ?? [])])];
-    const loaded = await client.packages.loadMany(sources);
-    defaultPackage = loaded[0];
+    const loaded = await client.packages.loadMany(resources.sources);
     const packages = [...new Map(loaded.map(pkg => [pkg.id, pkg])).values()];
+    const builtinIds = new Set(loaded.filter((_, index) => resources.builtin[index]).map(pkg => pkg.id));
+    for (const pkg of packages) {
+      for (const name of pkg.commands) {
+        if (!builtinIds.has(pkg.id)) extraCommands.add(name);
+        else if (!defaultCommands.has(name)) defaultCommands.set(name, pkg);
+      }
+    }
     if (failed) return;
-    if (options.mode === 'prepare') { send({ type: 'ready' }); return; }
     const certificates = [...(network ? network.caCerts ?? [] : []), ...(proxy?.caCert ? [proxy.caCert] : [])];
     const extraCAPath = options.env?.NODE_EXTRA_CA_CERTS;
     if (extraCAPath && certificates.length) {
@@ -86,8 +92,7 @@ async function initialize() {
     sandbox = await client.sandboxes.create(settings);
     if (!failed) send({ type: 'ready' });
   } catch (error) {
-    const preparing = options.mode === 'prepare';
-    fatal(preparing ? 'PREPARE_FAILED' : 'CREATE_FAILED', `Failed to prepare ${preparing ? 'runtime packages' : 'sandbox'}: ${diagnostic(error)}`);
+    fatal('CREATE_FAILED', `Failed to create sandbox: ${diagnostic(error)}`);
   }
 }
 
@@ -98,7 +103,7 @@ function diagnostic(error: unknown): string {
   for (const value of values.filter(value => typeof value === 'string' && value.length).sort((a, b) => b.length - a.length)) {
     message = message.split(value).join('[redacted]');
   }
-  const paths = [options.runtimeDirectory, options.cacheDir, ...(options.mounts ?? []).map(mount => mount.hostPath)];
+  const paths = [options.runtimeDirectory, ...(options.mounts ?? []).map(mount => mount.hostPath)];
   for (const path of paths.filter((path): path is string => Boolean(path)).sort((a, b) => b.length - a.length)) {
     message = message.split(path).join('[host path]');
   }
@@ -118,7 +123,13 @@ async function run(id: number, argv: string[], settings: WireCommandOptions) {
     let started = false;
     try {
       if (!sandbox || closing || failed) return;
-      const selector = settings.package === 'default' ? defaultPackage!.command(argv[0]!) : argv[0]!;
+      const name = argv[0]!;
+      const owner = defaultCommands.get(name);
+      if (settings.package === 'default' && !owner) {
+        send({ type: 'commandError', id, code: 'COMMAND_NOT_FOUND', message: 'Guest command was not found in the default packages' });
+        return;
+      }
+      const selector = owner && (settings.package === 'default' || !extraCommands.has(name)) ? owner.command(name) : name;
       record.process = await sandbox.command(selector, argv.slice(1), {
         cwd: settings.cwd ?? '/workspace', env: commandEnv(settings.env),
       }).spawn({

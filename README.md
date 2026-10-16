@@ -1,6 +1,6 @@
 # wasmdbox
 
-Create WASM sandboxes in Node.js and run Node, Bash, and coreutils commands. Written in TypeScript, with ESM exports and type declarations. Requires **Node.js 24+** on the host. No Wasmer CLI or Docker required.
+Create WASM sandboxes in Node.js and run Node, Python, Bash, and coreutils commands. Written in TypeScript, with ESM exports and type declarations. Requires **Node.js 24+** on the host. No Wasmer CLI or Docker required.
 
 ```js
 import { Sandbox } from 'wasmdbox';
@@ -20,8 +20,8 @@ try {
 }
 ```
 
-`Sandbox.create()` initializes Wasmer, loads the runtime, and creates the sandbox. When networking is enabled, it also manages the proxy's startup and shutdown.
-The default runtime is `wasmer/edgejs-quickjs@=0.2.5`. Its Node compatibility comes from EdgeJS/QuickJS; it is not a full host Node.js runtime.
+`Sandbox.create()` verifies and loads the bundled packages, initializes Wasmer, and creates the sandbox. When networking is enabled, it also manages the proxy's startup and shutdown.
+The default packages are EdgeJS `0.2.5` and Python `3.13.20`, with pinned Bash/Coreutils dependencies. Node compatibility comes from EdgeJS/QuickJS; it is not a full host Node.js runtime.
 
 ## Running from the repository
 
@@ -29,7 +29,7 @@ The default runtime is `wasmer/edgejs-quickjs@=0.2.5`. Its Node compatibility co
 nvm use
 npm ci
 npm run build
-npm run runtime:prepare              # Optional: download runtime packages before creating a sandbox
+npm run runtime:verify               # Verify checked-in runtime resources without network access
 npm run demo                         # All standalone local examples
 node examples/file-read/main.js    # Run one example
 node examples/host-mount-read/main.js  # Read-only mounts
@@ -41,7 +41,7 @@ npm test
 npm run test:package                  # After building, install the tarball outside the repo and verify JS/TS consumers
 ```
 
-The runtime is downloaded from the Wasmer registry on first use, through either `prepare()` or `create()`. Later calls reuse downloaded content, but package resolution may still query the registry, so offline creation is not guaranteed. The standalone examples explicitly use the project's `.wasmer/` directory; the library defaults to the user's cache directory. The regular networking examples each run their own local HTTPS server and need no real credentials.
+A self-contained runtime WEBC ships inside the npm package. Creation loads it with the official Wasmer engine and never queries a registry or downloads package content. No preparation, postinstall or runtime cache is needed. The `cacheDir` option has been removed; delete it from creation options. Guest networking is controlled separately. See the [bundled-runtime and migration guide](docs/bundled-runtime.md).
 
 The [package-install example](docs/install-validation.md) installs `is-number@7.0.0` into `.artifacts/package-install/` through a writable mount. It closes the installer, then verifies the saved package from a new sandbox with a read-only mount and guest networking disabled. The host installation remains after both sandboxes close.
 
@@ -49,13 +49,14 @@ The build produces JavaScript, declaration files, and a private copy of the Wasm
 
 GitHub Actions runs validation on Linux, macOS and Windows on pull requests and pushes to `main`, including commands, virtual files, local host directory mounts, package loading and networking. Windows mounts use the Node filesystem adapter without native addons; see the [mount guide](docs/sdk-host-mounts.md) for path restrictions and filesystem boundaries. Pushing a matching `v*` version tag runs validation and publishes the same verified tarball to public npm using trusted publishing and to `npm.sea.com` using GitHub Secrets. See the [publishing guide](docs/publishing.md) for the one-time account setup and release commands.
 
-When multiple installed packages export the same command, unqualified `exec`/`spawn` retains `COMMAND_AMBIGUOUS`. To explicitly select a command from the default EdgeJS runtime (for example Bash when Python is also installed), pass `package: 'default'`:
+Default Node, Python, Bash and Coreutils commands work without package selection. The bundled runtime contains one provider for each command, using the Bash/Coreutils versions required by EdgeJS. If an extra local package exports the same command as a default or another extra package, an unqualified call throws `COMMAND_AMBIGUOUS`. Explicitly select a default command with:
 
 ```js
 await sandbox.exec(['bash', '-c', 'python --version'], { package: 'default', check: true });
+await sandbox.exec(['python', '--version'], { package: 'default', check: true });
 ```
 
-This selects the initial command only; the installed sandbox packages remain available to its child processes. Other `package` values are rejected, and a command absent from the default runtime returns `COMMAND_NOT_FOUND`.
+This selects the initial command only; installed packages remain available to child processes. Other `package` values are rejected, and a command absent from the default packages returns `COMMAND_NOT_FOUND`.
 
 The bundled WASIX Bash has a known parsing limitation with multiline JavaScript inside quoted `node -e` arguments: it can return success without executing that script. Use a guest script file such as `/tmp/script.cjs` and `node /tmp/script.cjs`, or call `exec(['node', '-e', source])` directly.
 
@@ -69,7 +70,6 @@ const sandbox = await Sandbox.create({
   env: { MODE: 'demo' },
   mounts: [{ hostPath: './data', guestPath: '/mounted', readOnly: false }],
   network: false,
-  cacheDir: './.wasmer',
   startupTimeoutMs: 180_000,
   signal: abortController.signal,
 });
@@ -77,7 +77,7 @@ const sandbox = await Sandbox.create({
 
 - `files` imports strings or `Uint8Array` values at creation time for guest scripts and initial data.
 - `env` explicitly passes environment variables to the guest. Host environment variables are not forwarded automatically.
-- `extraPkgs` accepts `readonly (string | Uint8Array)[]`: Wasmer registry references, local package bytes (including Node Buffers), or a mixture. It never replaces the default runtime; omitting it or passing `[]` loads only the default runtime and its dependencies.
+- `extraPkgs` accepts only `readonly Uint8Array[]`: nonempty self-contained WEBC v3 or raw WASI bytes, including Node Buffers. All strings (including built-in package names, URLs and paths) are rejected with `INVALID_OPTIONS` before worker startup. Node and Python are always present.
 - `mounts` mounts existing host directories. Relative `hostPath` values resolve against the host's current working directory. Guest changes to writable mounts go directly to disk; read-only mounts reject changes. See the [mount guide](docs/sdk-host-mounts.md).
 - Omitting `network` or setting it to `false` disables guest networking. `network: {}` enables a managed TCP proxy.
 - `startupTimeoutMs` defaults to 180 seconds. `signal` controls creation only; commands have separate timeout and cancellation options.
@@ -100,7 +100,7 @@ Managed CA files live in a separate, private, read-only `/.wasmdbox` mount, neve
 
 ## Loading a local WEBC package
 
-Read a bundled package on the host and pass its bytes to `extraPkgs`. It does not need to be published to a registry:
+Read a local WEBC package on the host and pass its bytes to `extraPkgs`. It does not need to be published to a registry:
 
 ```js
 import { readFile } from 'node:fs/promises';
@@ -117,26 +117,14 @@ try {
 
 Commands come from the package manifest. The [local-package example](examples/local-package/README.md) includes an unpublished `hello.webc`, its source, and a rebuild script. Run it after building with `node examples/local-package/main.js`; Rust and the Wasmer CLI are only needed to rebuild that fixture.
 
-Both `create()` and `prepare()` snapshot each byte view before returning control to the caller, without detaching the caller's buffer. Only the view's visible bytes are loaded. Empty byte arrays are invalid options; malformed package contents fail during loading. Strings retain their registry-reference meaning; read local paths with `readFile()` first.
+`create()` snapshots each byte view before returning control to the caller, without detaching the caller's buffer. Only the view's visible bytes are loaded. Empty byte arrays are invalid options; malformed package contents fail during loading. Read local paths with `readFile()` first.
 
-Local WEBC bytes remove the need to fetch that package itself. The default runtime and any package dependencies still use the cache/registry path, so this does not guarantee offline startup. Guest `network: false` does not disable host-side package acquisition.
+Each extra package must be self-contained. Bundle its dependencies into the same WEBC before passing its bytes; supplying dependencies as separate `extraPkgs` entries is not supported. Before calling Wasmer, the SDK reads the WEBC v3 indexed manifest and rejects external dependencies with `CREATE_FAILED`, without fetching anything. Raw WASI modules are also accepted. Unsupported container versions and malformed metadata fail locally. Identical byte packages are deduplicated, including bytes matching the bundled runtime.
 
-## Preparing runtime packages
+Python is available directly:
 
-`Sandbox.prepare()` optionally loads the default runtime, additional packages, and their dependencies, downloading missing registry content into the cache. It accepts the same mixed `extraPkgs` list, including local bytes. It does not create a guest, mount directories, or start a proxy. It returns `Promise<void>` after releasing its client and worker.
-
-```ts
-await Sandbox.prepare({
-  cacheDir: './.wasmer',
-  extraPkgs: ['python/python@=3.13.20'],
-  startupTimeoutMs: 180_000,
-  signal: abortController.signal,
-});
-
-const sandbox = await Sandbox.create({
-  cacheDir: './.wasmer',
-  extraPkgs: ['python/python@=3.13.20'],
-});
+```js
+const sandbox = await Sandbox.create();
 try {
   console.log((await sandbox.exec(['python', '--version'], { check: true })).stdout);
 } finally {
@@ -144,22 +132,7 @@ try {
 }
 ```
 
-The two calls are independent. `create()` always loads the packages from its own options, reuses matching cached content, and downloads anything missing. You can skip `prepare()`, prepare a larger set of packages, or pass different `extraPkgs` lists. A package being cached does not automatically make its commands available in a sandbox; local packages must also be supplied as bytes to each `create()` that needs them. Both APIs use the same default user cache directory; pass the same `cacheDir` to share a custom cache.
-
-Package references support Wasmer version expressions. Pin versions for predictable cache reuse; unpinned references may resolve to newer versions. Registry metadata queries remain allowed, so preparation does not guarantee offline startup. It does not retain an initialized runtime or eliminate later WASM initialization work.
-
-Repeated references and packages resolving to the same ID are deduplicated. Different packages may export the same command, including commands from shared dependencies. An ambiguous command throws `CommandError` with `COMMAND_AMBIGUOUS`; there is no implicit override. For example, the pinned Python package also exposes Bash, so adding it makes an unqualified `bash` command ambiguous, while `python` and `node` remain usable.
-
-Preparation errors are `SandboxError`: invalid input uses `INVALID_OPTIONS`, package loading failures use `PREPARE_FAILED`, and timeouts or cancellation use `STARTUP_TIMEOUT` or `STARTUP_ABORTED`. Worker and cleanup failures retain their existing lifecycle codes. Successfully cached packages remain available after a failed or cancelled preparation.
-
-To prepare packages explicitly from the repository after building:
-
-```sh
-npm run runtime:prepare
-npm run runtime:prepare -- --cache-dir ./.wasmer python/python@=3.13.20
-```
-
-This command defaults to the project's `./.wasmer`; positional arguments are extra packages. It is not an npm `prepare` or `postinstall` lifecycle hook. See the [preparation example](examples/prepare/main.js) and [extra-package example](examples/extra-packages/main.js), which keeps the Python guest in a separate file.
+The [Python example](examples/extra-packages/main.js) imports a Python guest file and runs it with the default packages.
 
 ## Running commands
 
@@ -204,7 +177,7 @@ Both error classes extend `Error` directly; neither extends the other:
 | Nonzero guest exit / script exception | Returns a result by default; throws `CommandError` with `check: true` |
 | Timeout / AbortSignal cancellation / explicit termination | `CommandError`, including available output |
 | Directly executing an unknown command | `CommandError`, without a fabricated guest exit code |
-| Preparation or creation failure / worker crash / proxy failure / call after closing | `SandboxError` |
+| Creation failure / worker crash / proxy failure / call after closing | `SandboxError` |
 | Network policy denies a request | The guest receives a network error; the sandbox remains usable |
 
 `CommandError.result` may be absent, for example if the command has not started. Timeouts and cancellations are independent of `check`. If execution cannot stop within the cancellation grace period, the SDK terminates the entire sandbox and throws `SandboxError`.
@@ -276,4 +249,4 @@ The project pins `@wasmer/sdk@0.19.1`. The build adds the required mount, proxy,
 
 ## License
 
-wasmdbox's own code is [MIT licensed](LICENSE). The bundled Wasmer SDK retains its own Modified MIT License at `dist/vendor/wasmer-sdk/LICENSE` in the published package.
+wasmdbox's own code is [MIT licensed](LICENSE). The bundled Wasmer SDK retains its own Modified MIT License at `dist/vendor/wasmer-sdk/LICENSE` in the published package. Bundled runtime components retain their respective licenses; see `dist/assets/NOTICE.md` and `dist/assets/licenses/` in the published package.

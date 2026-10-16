@@ -1,5 +1,4 @@
 import { Sandbox } from 'wasmdbox';
-import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:net';
@@ -11,7 +10,6 @@ let listener;
 try {
   listener = await startListener('::1');
   sandbox = await Sandbox.create({
-    cacheDir: fileURLToPath(new URL('../../.wasmer/', import.meta.url)),
     files: {
       '/workspace/app/case.cjs': await readFile(new URL('./guest.cjs', import.meta.url)),
     },

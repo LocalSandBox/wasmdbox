@@ -1,7 +1,6 @@
 import { Sandbox } from 'wasmdbox';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:https';
 import { generate } from 'selfsigned';
 
@@ -11,7 +10,6 @@ let sandbox;
 
 try {
   sandbox = await Sandbox.create({
-    cacheDir: fileURLToPath(new URL('../../.wasmer/', import.meta.url)),
     files: { '/workspace/guest.cjs': await readFile(new URL('./guest.cjs', import.meta.url)) },
     env: { API_URL: `https://blocked.demo.test:${fixture.port}/demo` },
     network: {

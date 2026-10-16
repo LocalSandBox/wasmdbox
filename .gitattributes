@@ -1,1 +1,4 @@
 * text=auto eol=lf
+*.webc binary
+*.wasm binary
+assets/runtime/*.bin binary

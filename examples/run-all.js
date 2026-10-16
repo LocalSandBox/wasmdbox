@@ -3,9 +3,9 @@ import { readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const directory = new URL('./', import.meta.url);
-// These examples have separate entry points because they load extra packages or
-// download an npm archive. Keep the default batch limited to the local cases.
-const optionalExamples = new Set(['prepare', 'extra-packages', 'package-install']);
+// Python has a separate smoke entry point; package-install needs public npm.
+// Keep the default batch's existing set of local examples.
+const optionalExamples = new Set(['extra-packages', 'package-install']);
 const files = (await readdir(directory, { withFileTypes: true }))
   .filter((entry) => entry.isDirectory() && !optionalExamples.has(entry.name))
   .map((entry) => entry.name + '/main.js').sort();

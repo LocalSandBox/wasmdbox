@@ -11,16 +11,18 @@ const installedEntry = await realpath('node_modules/wasmdbox/dist/index.js');
 assert.equal(resolved, installedEntry, 'consumer must load the installed artifact');
 assert.equal(new CommandError('TIMEOUT', 'test') instanceof SandboxError, false);
 const extraPkgs = [
-  'python/python@=3.13.20',
   await readFile(new URL('../examples/local-package/hello.webc', import.meta.resolve('wasmdbox'))),
 ];
-await Sandbox.prepare({ cacheDir: process.env.WASMDBOX_VERIFY_CACHE, extraPkgs });
+for (const packages of [['python/python@=3.13.20'], [...extraPkgs, 'wasmer/bash']]) {
+  await assert.rejects(Sandbox.create({ extraPkgs: packages }), { name: 'SandboxError', code: 'INVALID_OPTIONS' });
+}
+console.log('PASS: installed package rejects string and mixed extraPkgs');
+await assert.rejects(Sandbox.create({ cacheDir: './legacy-cache' }), { code: 'INVALID_OPTIONS', message: /cacheDir has been removed/ });
 await mkdir('mounted');
 const fixture = await startFixture();
 let sandbox;
 try {
   sandbox = await Sandbox.create({
-    cacheDir: process.env.WASMDBOX_VERIFY_CACHE,
     files: { '/workspace/guest.cjs': await readFile(new URL('./guest.cjs', import.meta.url)) },
     mounts: [{ hostPath: './mounted', guestPath: '/workspace' }],
     env: {
@@ -39,6 +41,7 @@ try {
   const result = await sandbox.exec(['node', '/workspace/guest.cjs'], { check: true, timeoutMs: 30_000 });
   assert.match(result.stdout, /installed consumer guest passed/);
   assert.equal((await sandbox.exec(['bash', '-c', 'printf shell-ready'], { check: true })).stdout, 'shell-ready');
+  assert.match((await sandbox.exec(['python', '--version'], { check: true })).stdout, /^Python 3\./);
   assert.deepEqual(fixture.seen, [{ authorized: true }]);
 } finally {
   try { await sandbox?.close(); }
@@ -48,15 +51,15 @@ assert.equal(await readFile('mounted/result.txt', 'utf8'), 'written by installed
 console.log('PASS: installed package host mount writes persist');
 console.log('PASS: installed package JS consumer, Node/Bash, files and native HTTPS secrets');
 
-const extra = await Sandbox.create({ cacheDir: process.env.WASMDBOX_VERIFY_CACHE, extraPkgs });
+const extra = await Sandbox.create({ extraPkgs });
 try {
-  await assert.rejects(extra.exec(['bash', '-c', 'true']), { code: 'COMMAND_AMBIGUOUS' });
+  assert.equal((await extra.exec(['bash', '-c', 'true'], { check: true })).exitCode, 0);
   assert.match((await extra.exec(['bash', '-c', 'python --version'], { package: 'default', check: true })).stdout, /^Python 3\./);
   assert.match((await extra.exec(['python', '--version'], { check: true })).stdout, /^Python 3\./);
   assert.match((await extra.exec(['node', '--version'], { check: true })).stdout, /^v\d+/);
   assert.equal((await extra.exec(['local-hello'], { check: true, timeoutMs: 30_000 })).stdout, 'hello from local webc\n');
 } finally { await extra.close(); }
-console.log('PASS: installed package prepare(), registry references and local WEBC bytes');
+console.log('PASS: installed package bundled Python and local WEBC bytes without downloads');
 
 async function startFixture() {
   const certificate = await generate([{ name: 'commonName', value: 'package.demo.test' }], {

@@ -1,6 +1,6 @@
 {
   "name": "wasmdbox",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "license": "MIT",
   "description": "Managed Wasmer sandboxes for Node.js with explicit files, host mounts, and scoped network secrets",
   "repository": {
@@ -35,26 +35,30 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "runtime:prepare": "node scripts/prepare-runtime.mjs",
     "prepack": "npm run build",
     "demo": "node examples/run-all.js",
     "demo:cases": "node examples/run-all.js",
     "demo:install": "node examples/package-install/main.js",
     "typecheck": "tsc --noEmit",
     "test:mount": "node --test --test-concurrency=1 tests/host-filesystem.test.mjs tests/windows-host-filesystem.test.mjs tests/host-mount.test.mjs tests/workspace-mount.test.mjs",
-    "test:prepare": "node --test tests/prepare.test.mjs",
     "test:proxy": "node --test tests/proxy.test.mjs tests/proxy-sdk.test.mjs",
     "test:proxy:online": "node examples/api-authorization/online.js",
     "test:ablation": "node scripts/ablation.mjs",
     "test:package": "node scripts/verify-package.mjs",
-    "test": "npm run build && node --test tests/*.test.mjs"
+    "test": "npm run build && node --test --test-concurrency=1 tests/*.test.mjs",
+    "runtime:verify": "node scripts/runtime-assets.mjs verify",
+    "runtime:update": "node scripts/runtime-assets.mjs update",
+    "test:packages": "node --test --test-concurrency=1 tests/webc.test.mjs tests/runtime-resource.test.mjs tests/bundled-packages.test.mjs tests/local-package.test.mjs tests/default-package.test.mjs",
+    "runtime:bundle": "node scripts/bundle-runtime.mjs"
   },
   "dependencies": {
+    "cbor": "10.0.11",
     "selfsigned": "5.5.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@wasmer/sdk": "0.19.1",
+    "semver": "7.7.3",
     "typescript": "^5.9.0"
   }
 }

@@ -2,26 +2,13 @@
 import { isMainThread, workerData } from 'node:worker_threads';
 import { appendFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import net from 'node:net';
+import './package-consumer/block-fetch.mjs';
 
 const report = process.env.WASMDBOX_PACKAGE_REPORT;
-if (!isMainThread && workerData?.mode && report) {
+if (!isMainThread && workerData && Object.hasOwn(workerData, 'runtimeDirectory') && report) {
   const fault = process.env.WASMDBOX_PACKAGE_FAULT;
   const record = event => appendFileSync(report, JSON.stringify(event) + '\n');
-  const fetch = globalThis.fetch;
-  globalThis.fetch = async (input, init) => {
-    const url = new URL(input instanceof Request ? input.url : String(input));
-    const download = url.pathname.endsWith('.webc');
-    record({ type: 'fetch', url: `${url.origin}${url.pathname}`, download });
-    if (download && (process.env.WASMDBOX_BLOCK_DOWNLOADS || fault === 'download-failure')) {
-      throw new Error('Package body download is forbidden by this test');
-    }
-    return fetch(input, init);
-  };
-
-  if (workerData.mode === 'prepare') {
-    net.Server.prototype.listen = function () { throw new Error('Preparation must not open a listener'); };
-  }
+  record({ type: 'worker' });
   const sdk = await import('../../dist/vendor/wasmer-sdk/dist/node.js');
   const uninitialized = new sdk.Wasmer();
   const packages = Object.getPrototypeOf(uninitialized.packages);

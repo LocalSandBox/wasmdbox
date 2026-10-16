@@ -7,7 +7,6 @@ import { fileURLToPath } from 'node:url';
 // Copy directory contents at creation. Guest edits affect the virtual copy, not the host originals.
 const sourceDirectory = fileURLToPath(new URL('./fixtures/', import.meta.url));
 const sandbox = await Sandbox.create({
-  cacheDir: fileURLToPath(new URL('../../.wasmer/', import.meta.url)),
   files: {
     ...await readDirectory(sourceDirectory, '/workspace/data'),
     '/workspace/guest.cjs': await readFile(new URL('./guest.cjs', import.meta.url)),

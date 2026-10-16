@@ -1,5 +1,4 @@
 import { Sandbox } from 'wasmdbox';
-import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
@@ -9,7 +8,6 @@ const input = new URL('./fixtures/visible.txt', import.meta.url);
 
 try {
   sandbox = await Sandbox.create({
-    cacheDir: fileURLToPath(new URL('../../.wasmer/', import.meta.url)),
     files: {
       '/workspace/app/case.cjs': await readFile(new URL('./guest.cjs', import.meta.url)),
       '/workspace/work/hello.txt': await readFile(input),

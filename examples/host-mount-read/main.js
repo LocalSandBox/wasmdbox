@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+
 
 // A read-only host mount exposes the directory and subsequent host changes to the guest.
 const hostDirectory = await mkdtemp(join(tmpdir(), 'wasmdbox-mount-read-'));
@@ -12,7 +12,6 @@ let sandbox;
 try {
   await cp(new URL('./fixtures/', import.meta.url), hostDirectory, { recursive: true });
   sandbox = await Sandbox.create({
-    cacheDir: fileURLToPath(new URL('../../.wasmer/', import.meta.url)),
     files: {
       '/workspace/guest.cjs': await readFile(new URL('./guest.cjs', import.meta.url)),
     },

@@ -9,7 +9,6 @@ const hostPath = fileURLToPath(new URL('./fixtures/hidden.txt', import.meta.url)
 
 try {
   sandbox = await Sandbox.create({
-    cacheDir: fileURLToPath(new URL('../../.wasmer/', import.meta.url)),
     files: {
       '/workspace/app/case.cjs': await readFile(new URL('./guest.cjs', import.meta.url)),
     },

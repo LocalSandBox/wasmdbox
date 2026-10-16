@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url';
 
 // Keep this directory after closing the sandboxes so the installation persists.
 const hostDirectory = fileURLToPath(new URL('../../.artifacts/package-install/', import.meta.url));
-const cacheDir = fileURLToPath(new URL('../../.wasmer/', import.meta.url));
 await mkdir(hostDirectory, { recursive: true });
 try {
   await writeFile(join(hostDirectory, 'package.json'), await readFile(new URL('./fixtures/package.json', import.meta.url)), { flag: 'wx' });
@@ -16,7 +15,6 @@ try {
 console.log('Persistent host directory: ' + hostDirectory);
 
 const installer = await Sandbox.create({
-  cacheDir,
   network: { allow: ['registry.npmjs.org'] },
   mounts: [{ hostPath: hostDirectory, guestPath: '/mounted', readOnly: false }],
   files: {
@@ -56,7 +54,6 @@ console.log('Installer closed; is-number@7.0.0 remains on the host');
 
 // A new sandbox receives only the guest script and a read-only mount of the saved installation.
 const verifier = await Sandbox.create({
-  cacheDir,
   network: false,
   mounts: [{ hostPath: hostDirectory, guestPath: '/mounted', readOnly: true }],
   files: { '/workspace/guest.cjs': await readFile(new URL('./guest.cjs', import.meta.url)) },

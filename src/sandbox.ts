@@ -1,11 +1,11 @@
 import { Worker } from 'node:worker_threads';
 import { Readable, Writable } from 'node:stream';
-import { homedir, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { mkdtempSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { SandboxError, CommandError, type CommandErrorCode } from './errors.js';
-import type { PrepareOptions, SandboxOptions, ExecOptions, SpawnOptions, CommandResult, SandboxProcess } from './types.js';
+import type { SandboxOptions, ExecOptions, SpawnOptions, CommandResult, SandboxProcess } from './types.js';
 import { deferred, type ParentMessage, type WorkerMessage, type WireCommandOptions, type WorkerOptions } from './internal/protocol.js';
 
 const OUTPUT_BYTES = 512 * 1024;
@@ -41,7 +41,8 @@ export class Sandbox {
   private constructor(options: WorkerOptions) {
     this.#runtimeDirectory = options.runtimeDirectory;
     this.#worker = new Worker(new URL('./internal/sandbox-worker.js', import.meta.url), {
-      workerData: options, stdout: true, stderr: true, execArgv: workerModuleHooks(),
+      workerData: options, stdout: true, stderr: true,
+      execArgv: [...workerModuleHooks(), '--import', new URL('./internal/package-fetch.js', import.meta.url).href],
     });
     // SDK diagnostic output is not part of guest stdout/stderr or our public API.
     this.#worker.stdout.resume();
@@ -56,19 +57,9 @@ export class Sandbox {
   }
 
   static async create(options: SandboxOptions = {}): Promise<Sandbox> {
-    return Sandbox.#initialize(options, 'sandbox');
-  }
-
-  /** Warm the package cache without creating a guest or a network proxy. */
-  static async prepare(options: PrepareOptions = {}): Promise<void> {
     validateObject(options, 'options');
-    const { cacheDir, extraPkgs, startupTimeoutMs, signal } = options;
-    await Sandbox.#initialize({ cacheDir, extraPkgs, startupTimeoutMs, signal }, 'prepare');
-  }
-
-  static async #initialize(options: SandboxOptions, mode: WorkerOptions['mode']): Promise<Sandbox> {
-    validateObject(options, 'options');
-    const operation = mode === 'prepare' ? 'Runtime preparation' : 'Sandbox creation';
+    if ('cacheDir' in options) invalid('cacheDir has been removed; runtime resources are bundled with the SDK');
+    const operation = 'Sandbox creation';
     const timeout = options.startupTimeoutMs ?? 180_000;
     validateDuration(timeout, 'startupTimeoutMs');
     validateSignal(options.signal);
@@ -83,15 +74,14 @@ export class Sandbox {
       // Snapshot before yielding. Proxy interception or custom trust needs a CA
       // bundle; an allow-only proxy does not create any private runtime files.
       const network = options.network;
-      if (mode === 'sandbox' && network && (Object.keys(network.secrets ?? {}).length || network.caCerts?.length)) {
+      if (network && (Object.keys(network.secrets ?? {}).length || network.caCerts?.length)) {
         runtimeDirectory = mkdtempSync(join(tmpdir(), 'wasmdbox-runtime-'));
       }
       sandbox = new Sandbox(structuredClone({
-        ...settings, mode, runtimeDirectory,
+        ...settings, runtimeDirectory,
         // Snapshot only each view's bytes, including Buffer and shared-memory
         // views, before yielding. Caller buffers remain owned by the caller.
-        extraPkgs: options.extraPkgs?.map(pkg => typeof pkg === 'string' ? pkg : new Uint8Array(pkg)),
-        cacheDir: resolve(options.cacheDir ?? defaultCacheDir()),
+        extraPkgs: options.extraPkgs?.map(pkg => new Uint8Array(pkg)),
         mounts: options.mounts?.map(mount => ({
           hostPath: resolve(mount.hostPath), guestPath: mount.guestPath,
           readOnly: mount.readOnly, denyWritePaths: mount.denyWritePaths,
@@ -107,7 +97,6 @@ export class Sandbox {
     if (signal?.aborted) cancel();
     try {
       await sandbox.#ready.promise;
-      if (mode === 'prepare') await sandbox.close();
       return sandbox;
     } catch (error) {
       await sandbox.#terminate();
@@ -334,11 +323,6 @@ export class Sandbox {
   }
 }
 
-function defaultCacheDir() {
-  if (process.platform === 'darwin') return join(homedir(), 'Library', 'Caches', 'wasmdbox');
-  if (process.platform === 'win32') return join(process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'), 'wasmdbox', 'Cache');
-  return join(process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache'), 'wasmdbox');
-}
 function invalid(message: string): never { throw new SandboxError('INVALID_OPTIONS', message); }
 function validateObject(value: unknown, name: string) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) invalid(`${name} must be an object`);
@@ -356,14 +340,12 @@ function validateEnv(env: Readonly<Record<string, string>> | undefined) {
     if (!name || /[=\0]/.test(name) || typeof value !== 'string' || value.includes('\0')) invalid('env must contain valid names and string values');
   }
 }
-function validateExtraPkgs(packages: PrepareOptions['extraPkgs']) {
+function validateExtraPkgs(packages: SandboxOptions['extraPkgs']) {
   if (packages === undefined) return;
-  if (!Array.isArray(packages)) invalid('extraPkgs must be an array of package references or bytes');
+  if (!Array.isArray(packages)) invalid('extraPkgs must be an array of nonempty Uint8Array package bytes; strings are not supported');
   for (const pkg of packages) {
-    if (typeof pkg === 'string') {
-      if (!pkg.trim() || pkg.includes('\0')) invalid('extraPkgs references must be nonempty and contain no NUL bytes');
-    } else if (!(pkg instanceof Uint8Array) || !pkg.byteLength) {
-      invalid('extraPkgs must contain package references or nonempty Uint8Array values');
+    if (!(pkg instanceof Uint8Array) || !pkg.byteLength) {
+      invalid('extraPkgs must contain only nonempty Uint8Array package bytes; strings are not supported');
     }
   }
 }
@@ -387,7 +369,7 @@ function validMessage(input: unknown): input is WorkerMessage {
       'NON_ZERO_EXIT', 'TIMEOUT', 'ABORTED', 'KILLED', 'COMMAND_NOT_FOUND', 'COMMAND_AMBIGUOUS', 'STDIN_FAILED',
     ].includes(value.code as string);
     case 'fatal': return typeof value.message === 'string' && [
-      'INVALID_OPTIONS', 'STARTUP_TIMEOUT', 'STARTUP_ABORTED', 'CREATE_FAILED', 'PREPARE_FAILED', 'SANDBOX_CLOSED', 'WORKER_FAILED',
+      'INVALID_OPTIONS', 'STARTUP_TIMEOUT', 'STARTUP_ABORTED', 'CREATE_FAILED', 'SANDBOX_CLOSED', 'WORKER_FAILED',
       'PROXY_FAILED', 'PROTOCOL_ERROR', 'SANDBOX_UNRESPONSIVE', 'CLOSE_FAILED',
     ].includes(value.code as string);
     default: return false;

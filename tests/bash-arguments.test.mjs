@@ -3,11 +3,9 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { Sandbox } from 'wasmdbox';
 
-const cacheDir = fileURLToPath(new URL('../.wasmer/', import.meta.url));
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 
 for (const commandBytes of [1024 * 1024, 2 * 1024 * 1024]) {
@@ -26,7 +24,7 @@ for (const commandBytes of [1024 * 1024, 2 * 1024 * 1024]) {
     const expected = Buffer.from(repeated + 'x'.repeat(size - Buffer.byteLength(repeated) - 1) + '\n');
     const command = prefix + expected.toString() + suffix;
     assert.equal(Buffer.byteLength(command), commandBytes);
-    box = await Sandbox.create({ cacheDir, network: false, signal: t.signal, startupTimeoutMs: 60_000,
+    box = await Sandbox.create({ network: false, signal: t.signal, startupTimeoutMs: 60_000,
       mounts: [{ hostPath: root, guestPath: '/workspace' }],
     });
     const result = await box.exec(['bash', '-c', command], { check: true, signal: t.signal, timeoutMs: 30_000, outputBytes: 1024 });

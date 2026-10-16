@@ -20,7 +20,7 @@ test('ESM eval callers and process-only flags support worker startup', { timeout
   for (const flag of [['--input-type=module'], ['--input-type', 'module']]) {
     const { stdout } = await execute(process.execPath, ['--stack-trace-limit=10', ...flag, '-e', `
       import { Sandbox } from 'wasmdbox';
-      const box = await Sandbox.create({ cacheDir: '.wasmer' });
+      const box = await Sandbox.create();
       try { console.log((await box.exec(['bash', '-c', 'printf ready'], { check: true })).stdout); }
       finally { await box.close(); }
     `], { cwd: root, timeout: 50_000 });

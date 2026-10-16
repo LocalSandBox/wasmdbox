@@ -11,10 +11,11 @@ The example reads the bundled `hello.webc` as a Node Buffer, passes it to
 `local-hello` command. Expected output includes `hello from local webc` and a
 PASS line confirming that the default Node runtime is also available.
 
-The package has no dependencies and is not published. Running the example needs
-neither Rust nor the Wasmer CLI. The default runtime is still acquired through
-the usual cache/registry path, so the first run requires network access even
-though guest networking is disabled.
+The package is WEBC v3, has no dependencies and is not published. Extra packages
+must be self-contained; passing another dependency package alongside them is
+not supported. Running the example needs
+neither Rust nor the Wasmer CLI. The SDK supplies the default runtime locally,
+so the example also works on its first run without registry access.
 
 To rebuild the fixture, install Rust with the `wasm32-wasip1` target and the
 Wasmer CLI, then run:

@@ -12,17 +12,13 @@ export interface HostMount {
   denyWritePaths?: string[];
 }
 
-export interface PrepareOptions {
-  cacheDir?: string;
-  /** Additional Wasmer package references or bytes; the default runtime is always included. */
-  extraPkgs?: readonly (string | Uint8Array)[];
-  /** Maximum preparation or creation time. Default: 180 seconds. */
+export interface SandboxOptions {
+  /** Self-contained WEBC v3 or raw WASI bytes, including Buffers. External dependencies and strings are rejected. Node and Python are built in. */
+  extraPkgs?: readonly Uint8Array[];
+  /** Maximum creation time. Default: 180 seconds. */
   startupTimeoutMs?: number;
-  /** Cancels preparation or creation only; commands have their own signal. */
+  /** Cancels creation only; commands have their own signal. */
   signal?: AbortSignal;
-}
-
-export interface SandboxOptions extends PrepareOptions {
   /**
    * Initial /workspace files. With a /workspace host mount, writes persist and
    * overwrite matching host files. Subject to mount write restrictions. Creation
@@ -37,7 +33,7 @@ export interface SandboxOptions extends PrepareOptions {
 }
 
 export interface CommandOptions {
-  /** Explicitly select the default runtime's command when extra packages export the same name. */
+  /** Select a bundled default command (including Python) when extra packages export the same name. */
   package?: 'default';
   cwd?: string;
   env?: Readonly<Record<string, string>>;

@@ -1,6 +1,6 @@
 # wasmdbox standalone examples
 
-Each execution example contains complete public SDK usage in `main.js` and a separate guest source file. Static data lives in that case's `fixtures/` directory. HTTPS fixture setup appears at the end of `main.js`; cases do not share code or fixtures. The optional preparation example downloads packages without running a guest.
+Each execution example contains complete public SDK usage in `main.js` and a separate guest source file. Static data lives in that case's `fixtures/` directory. HTTPS fixture setup appears at the end of `main.js`; cases do not share code or fixtures.
 
 ```sh
 nvm use
@@ -11,9 +11,9 @@ node examples/api-authorization/main.js
 node examples/host-mount-write/main.js
 ```
 
-The host requires Node 24+ and does not need the Wasmer CLI. Examples use the project's `.wasmer/` cache by default; the first run downloads the runtime from the Wasmer registry. Local networking cases listen on loopback and generate their HTTPS certificates in their own processes. `run-all.js` runs cases sequentially, reports failures, and exits with a nonzero status if any case fails.
+The host requires Node 24+ and does not need the Wasmer CLI. The SDK includes its runtime packages; creating a sandbox requires no registry access or prepared cache. Local networking cases listen on loopback and generate their HTTPS certificates in their own processes. `run-all.js` runs cases sequentially, reports failures, and exits with a nonzero status if any case fails.
 
-The batch executes all 25 local examples on Linux, macOS and Windows, including local WEBC loading and read-only and writable host mounts. A mount failure fails the batch on every platform. CI also runs preparation, extra-package, persistent package-installation and public HTTPS examples on all three platforms. Windows mount coverage targets local disk directories; see the [mount guide](../docs/sdk-host-mounts.md) for restrictions.
+The batch executes all 25 local examples on Linux, macOS and Windows, including local WEBC loading and read-only and writable host mounts. A mount failure fails the batch on every platform. CI also runs Python, persistent package-installation and public HTTPS examples on all three platforms. Windows mount coverage targets local disk directories; see the [mount guide](../docs/sdk-host-mounts.md) for restrictions.
 
 ## Index
 
@@ -45,9 +45,9 @@ The batch executes all 25 local examples on Linux, macOS and Windows, including 
 | [streaming](streaming/main.js) | stdin, streaming stdout, and wait |
 | [local-package](local-package/main.js) | Load an unpublished bundled WEBC as bytes and execute its manifest command |
 
-The default batch contains these 25 examples, discovered by directory name and run in alphabetical order. `prepare`, `extra-packages`, and `package-install` are optional examples with separate commands below.
+The default batch contains these 25 examples, discovered by directory name and run in alphabetical order. `extra-packages` and `package-install` are optional examples with separate commands below.
 
-Run `node examples/local-package/main.js` for the local WEBC PoC. Its prebuilt fixture needs no extra host tools; see its [rebuild instructions](local-package/README.md) for the Rust source and manifest. Like the other local examples, its default runtime may need to be downloaded on first use.
+Run `node examples/local-package/main.js` for the local WEBC PoC. Its prebuilt fixture needs no extra host tools; see its [rebuild instructions](local-package/README.md) for the Rust source and manifest. Its default runtime and dependencies are bundled in the SDK.
 
 `work-parent-path-denied` and `app-parent-path-denied` verify that unimported files do not exist; they do not prohibit all virtual paths containing `..`. `tcp-loopback-denied` and `tcp-ipv6-denied` start real loopback listeners and confirm that no connection arrives, in addition to checking the guest error. `domain-denied` and `domain-suffix-denied` also confirm that the fixture receives no connection, so a TLS or connection failure cannot be mistaken for a policy rejection.
 
@@ -71,14 +71,13 @@ Secrets are replaced only within their configured domains and ports. Replacement
 
 ## Optional external resource checks
 
-Runtime preparation and additional package examples are independent of the default batch:
+The Python example is independent of the default batch:
 
 ```sh
-node examples/prepare/main.js         # Cache the default runtime without creating a guest
 node examples/extra-packages/main.js  # Run a Python guest while retaining the default Node runtime
 ```
 
-`prepare()` is optional. Both examples use the project's `.wasmer/` directory, but `create()` decides which packages to load from its own `extraPkgs` list. The Python example pins `python/python@=3.13.20` and may download additional packages on first use. Packages can export overlapping commands: this Python package also exposes Bash, making an unqualified `bash` command ambiguous. These examples use separate entry points and do not share fixtures.
+Python and Node are default bundled commands. The Python example requires no `extraPkgs` configuration or downloads. These examples use separate entry points and do not share fixtures.
 
 ```sh
 npm run test:proxy:online # example.com HTTPS with a non-sensitive demo header

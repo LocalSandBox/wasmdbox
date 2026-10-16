@@ -2,7 +2,6 @@ import type { CommandResult, SandboxOptions, CommandOptions } from '../types.js'
 import type { CommandErrorCode, SandboxErrorCode } from '../errors.js';
 
 export type WorkerOptions = Omit<SandboxOptions, 'signal' | 'startupTimeoutMs'> & {
-  mode: 'prepare' | 'sandbox';
   /** Parent-owned private directory; never accepted from public options. */
   runtimeDirectory?: string;
 };

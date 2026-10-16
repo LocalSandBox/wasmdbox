@@ -8,8 +8,7 @@ import { Sandbox } from 'wasmdbox';
 const directory = await mkdtemp(join(tmpdir(), 'wasmdbox-output-close-'));
 const report = join(directory, 'wait.txt');
 const finished = process.argv[2] === 'finished';
-const sandbox = await Sandbox.create({
-  cacheDir: '.wasmer', env: { WASMDBOX_TEST_FAULT: 'stalled-output', WASMDBOX_TEST_WAIT_REPORT: report },
+const sandbox = await Sandbox.create({ env: { WASMDBOX_TEST_FAULT: 'stalled-output', WASMDBOX_TEST_WAIT_REPORT: report },
 });
 try {
   const command = await sandbox.spawn(['bash', '-c', finished ? 'printf done' : 'sleep 30']);

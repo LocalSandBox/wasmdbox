@@ -8,15 +8,15 @@ The workflows follow the separation used by [local-sandbox](https://github.com/L
 
 - A frozen dependency install, TypeScript build, and the complete test suite.
 - Type checking and all default standalone examples.
-- A tarball install outside the checkout with lifecycle scripts disabled and the installed package made read-only. The consumer checks JavaScript, TypeScript, commands, mounts, HTTPS secrets, runtime preparation, and extra packages.
+- A tarball install outside the checkout with lifecycle scripts disabled and the installed package made read-only. The consumer checks JavaScript, TypeScript, commands, mounts, HTTPS secrets, bundled Python, and local extra packages.
 
-Linux also runs the SDK patch and parent deadline ablations. The tests use local HTTPS fixtures and need no API credentials, but Wasmer package resolution and downloads require internet access.
+Linux also runs the SDK patch and parent deadline ablations. The tests use local HTTPS fixtures and need no API credentials, and Wasmer package loading is verified with host fetch blocked. Guest npm installation and the optional public HTTPS example still need network access.
 
 CI runs test files sequentially so separate integration suites do not compete with each other's Wasmer worker pools on hosted runners. Tests that exercise multiple live sandboxes still do so, and command and cleanup deadlines are unchanged.
 
 A separate `Windows runtime` job builds and type-checks on `windows-latest`, runs the complete test suite including local host mounts and native Windows path cases, and executes all 24 default examples. Mount examples must pass. The job also installs and runs the tarball outside the checkout, verifies a guest write persisted through a host mount, and records `hostMountWrite: true` only after successful verification. Windows failures block releases just like the Linux and macOS jobs.
 
-All three platforms also run preparation, extra-package, public HTTPS, and package installation into a persistent host mount. These checks require access to the npm and Wasmer registries and `https://example.com/`.
+All three platforms also run bundled Python, public HTTPS, and package installation into a persistent host mount. Guest installation and public HTTPS require access to npm and `https://example.com/`; SDK runtime loading requires no registry access.
 
 Each successful Linux run uploads an `npm-package` artifact containing `npm/wasmdbox-VERSION.tgz` and `package-verification.json`. The archive is the same one installed by the consumer test. All three platforms upload their validation reports. Artifacts are retained for 14 days.
 

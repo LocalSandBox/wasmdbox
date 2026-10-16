@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { Sandbox } from 'wasmdbox';
 
 const root = await mkdtemp(join(tmpdir(), 'wasmdbox-private-ca-'));
 const runtimeRoot = join(root, 'runtime');
 await mkdir(runtimeRoot);
 process.env.TMPDIR = process.env.TEMP = process.env.TMP = runtimeRoot;
-const options = { cacheDir: resolve('.wasmer'), network: { secrets: { TOKEN: { value: 'fixture-secret', hosts: ['fixture.test'] } } } };
+const options = { network: { secrets: { TOKEN: { value: 'fixture-secret', hosts: ['fixture.test'] } } } };
 let box;
 try {
   await assert.rejects(Sandbox.create({ ...options, startupTimeoutMs: 0 }), { code: 'STARTUP_TIMEOUT' });
@@ -31,7 +31,7 @@ try {
   assert.equal(close, box.close());
   await close;
   assert.deepEqual(await readdir(runtimeRoot), []);
-  box = await Sandbox.create({ cacheDir: options.cacheDir, network: { allow: [] } });
+  box = await Sandbox.create({ network: { allow: [] } });
   assert.deepEqual(await readdir(runtimeRoot), [], 'no CA directory for allow-only networking');
   await box.close();
   console.log('private CA lifecycle passed');

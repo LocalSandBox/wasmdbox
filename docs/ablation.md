@@ -104,7 +104,7 @@ The copies and detailed outcomes are written to `.artifacts/ablation/public-pare
 The complete ablation evidence for this round therefore consists of 17 SDK outcomes and 2 public parent-process deadline outcomes, with all 19 matching expectations.
 
 The first run in a restricted environment encountered local `listen EPERM` and registry fetch failures; that run was excluded from the results.
-The comparisons require permission for local TCP/HTTPS fixtures and for the SDK to refresh runtime registry metadata. HTTPS uses local test certificates and requires no business credentials.
+Those historical comparisons needed runtime registry access. Current comparisons load the bundled WEBC locally and only need permission for local TCP/HTTPS fixtures. HTTPS uses local test certificates and requires no business credentials.
 The 20-second subprocess deadline stops indefinite waits caused by a missing RPC route; it is not the product's default command timeout.
 
 The clean SDK comes from the official npm tarball, whose integrity value matches the lockfile:
@@ -118,20 +118,28 @@ The build script checks the SHA256 of each of 64 upstream files, then applies re
 A normal clean installation uses the upstream files from the development dependency directly. A development directory containing older patches can use a separate source directory verified against the same hashes.
 The upstream `LICENSE`, WASM, required workers, and JS snippets retain their original relative layout. Consumers only need to install and import `wasmdbox`, without patches or postinstall scripts.
 
-## Runtime preparation and additional packages
+## Bundled package resolution
 
-The `prepare()` / `extraPkgs` addition uses the SDK's existing `packages.loadMany()` API. It adds no SDK patches; the build still applies 19 runtime replacements. Preparation and creation share one initialization and package-loading path, with preparation stopping before guest creation. It introduces no runtime handle, persisted manifest, or second cache format.
+The SDK loads a self-contained runtime WEBC with the original npm Wasmer WASM
+and generated bindings. It does not rebuild the engine or patch its resolver.
+Maintainer-only `runtime:bundle` uses the official Wasmer CLI to preserve the
+original atoms, command annotations and filesystem resources. A TypeScript
+admission check rejects external dependencies in extra packages before the SDK
+loads any package. `tests/webc.test.mjs` verifies malformed/ambiguous metadata,
+indexed-manifest selection, and original engine/binding integrity.
 
-Two public API controls in `tests/prepare.test.mjs` verify that the operations remain independent:
+`tests/bundled-packages.test.mjs` starts fresh processes and records/blocks host
+fetch calls. Empty caches, stale registry metadata and repeated creation must
+all execute the bundled commands with zero fetch attempts. String `extraPkgs`
+inputs, including built-in names and mixed byte/string lists, must fail before
+worker startup. Damaged resources, reordered chunks and any declared external dependencies
+must fail locally, even when their bytes are supplied as another extra.
+`tests/local-package.test.mjs` exercises caller byte snapshots and opt-in local
+commands. Creation cancellation and timeout still terminate the worker.
 
-| Control | Required observation |
-| --- | --- |
-| Replace SDK sandbox creation and listener startup with throwing functions during preparation | Cold preparation still downloads the default runtime, extra packages, and dependencies without creating a sandbox or proxy |
-| Replace the public `Sandbox.prepare()` method with a throwing function during creation | `Sandbox.create()` still downloads missing packages and executes the default Node and extra Python commands |
-
-Additional checks run creation in a separate process with package-body downloads forbidden after preparation, and verify that a cached Python package is unavailable when `create()` does not request it. Duplicate package references are collapsed before loading and after resolution; overlapping commands from distinct packages retain `COMMAND_AMBIGUOUS` instead of an implicit override.
-
-Run these controls and the preparation cancellation/cleanup regressions with `npm run test:prepare` after building. These controls are separate from the 19 earlier SDK and deadline ablation outcomes.
+These checks run with `npm run test:packages`; they replace the former
+preparation/download tests. Patch ablations for mounts, networking and worker
+lifecycle continue to use the same bundled package set.
 
 ## Active guest shutdown (0.2.0)
 
