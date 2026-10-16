@@ -137,7 +137,10 @@ async function run(id: number, argv: string[], settings: WireCommandOptions) {
         outputBytes: settings.outputBytes,
       });
       started = true;
-      if (record.cancelled || closing || failed) await record.process.kill();
+      // Owner teardown may have begun while spawn was pending. It owns the
+      // worker barrier now; do not race it with cooperative WASIX operations.
+      if (closing || failed) return;
+      if (record.cancelled) await record.process.kill();
       if (!failed && !closing) send({ type: 'started', id });
       const drains = Promise.all([
         drain(id, 'stdout', record.process.stdout!, settings),

@@ -10,6 +10,8 @@ jobs:
   network:
     runs-on: windows-latest
     timeout-minutes: 20
+    env:
+      WASMDBOX_TEST_POWERSHELL: pwsh.exe
     defaults:
       run:
         shell: bash
@@ -23,6 +25,10 @@ jobs:
           package-manager-cache: false
       - run: npm ci --ignore-scripts
       - run: npm run build
+      - name: Verify pending spawn shutdown ownership
+        run: node --test --test-reporter=tap --test-name-pattern='close owns teardown' tests/lifecycle.test.mjs
+      - name: Verify native file-lock fixture and workspace reuse
+        run: node --test --test-reporter=tap --test-name-pattern='host-backed workspace platform behavior' tests/workspace-mount.test.mjs
       - name: Repeat real WASM network tests with process exit diagnostics
         run: |
           mkdir -p .artifacts/windows-network

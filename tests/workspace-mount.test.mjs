@@ -58,7 +58,7 @@ async function assertWorkspaceUsable(exec) {
 // FileShare.None denies deletion as well as reads/writes. Wait for an explicit
 // handshake, not a sleep, and release the process before removing its fixture.
 async function lockWindowsFile(path) {
-  const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `
+  const child = spawn(process.env.WASMDBOX_TEST_POWERSHELL ?? 'powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', `
     $ErrorActionPreference = 'Stop'
     $file = [System.IO.File]::Open($env:WASMDBOX_LOCK_PATH, 'Open', 'ReadWrite', 'None')
     try {
