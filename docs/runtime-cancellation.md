@@ -15,8 +15,9 @@ The failure observed during cancellation follows this chain:
    handling can catch it and call back into the terminating runtime.
 4. EdgeJS can repeatedly raise further exit traps from its exception cleanup.
    An instrumented copy showed successive SDK stack-pointer decreases of 176
-   bytes during this recursion. The stack can overrun its allocation and
-   damage the shared heap.
+   bytes during this recursion, followed by shared allocator corruption.
+   This observation alone does not identify the precise heap write that
+   corrupts allocator metadata; it should not be called a proven stack overflow.
 5. Subsequent work then traps in the allocator or spins on its lock. Thus the
    allocator stack in a CPU profile identifies the symptom, not the initial
    error. Raising the next-command readiness timeout cannot fix it.
@@ -71,3 +72,9 @@ host writes stop after each cancellation. The manual diagnostic workflow runs
 100 cycles on real Linux and Windows runners and retains worker traces.
 The existing lifecycle, output, timeout, host-mount and package validation
 tests remain required.
+
+With the binding repair at `3e4236a`, both real Windows and Linux completed
+100 cancel/reuse cycles in
+[38946280614](https://github.com/LocalSandBox/wasmdbox/actions/runs/38946280614).
+The deterministic removed-patch control still fails. These results validate
+the control-trap repair; they do not assign a cause to every earlier CI failure.

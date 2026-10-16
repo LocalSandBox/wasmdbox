@@ -1,7 +1,7 @@
 // Wasmer's synchronous JS backend throws its Trap as an ordinary JS object.
 // A guest catch_all can catch that object, including process exit/cancellation,
 // and re-enter WASIX while it is terminating. EdgeJS's exception cleanup can
-// then recursively raise more exit traps and overrun the SDK's linear stack.
+// then recursively raise more exit traps while the runtime is terminating.
 // Use an actual WebAssembly trap to cross the guest, then return the original
 // Wasmer object to its Rust caller (which owns the exit code and its lifetime).
 // The official Wasmer WASM stays unchanged. This tiny module is only:
