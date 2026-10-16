@@ -14,9 +14,9 @@ Linux also runs the SDK patch and parent deadline ablations. The tests use local
 
 CI runs test files sequentially so separate integration suites do not compete with each other's Wasmer worker pools on hosted runners. Tests that exercise multiple live sandboxes still do so, and command and cleanup deadlines are unchanged.
 
-Linux/macOS jobs allow 35 minutes for the bundled-runtime suite, examples,
-installed consumers and Linux patch ablations. This is the overall job budget;
-command cancellation and cleanup deadlines remain unchanged.
+All three platform jobs allow 35 minutes for the bundled-runtime suite,
+examples, installed consumers and Linux patch ablations. This is the overall
+job budget; command cancellation and cleanup deadlines remain unchanged.
 
 A separate `Windows runtime` job builds and type-checks on `windows-latest`, runs the complete test suite including local host mounts and native Windows path cases, and executes all 25 default examples. Mount examples must pass. The job also installs and runs the tarball outside the checkout, verifies a guest write persisted through a host mount, and records `hostMountWrite: true` only after successful verification. Windows failures block releases just like the Linux and macOS jobs.
 
