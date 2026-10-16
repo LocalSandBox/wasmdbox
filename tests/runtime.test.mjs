@@ -105,7 +105,7 @@ test('cancellation stops real host writes and other sandboxes remain usable', { 
   const controller = new AbortController();
   const cancelled = box.exec(command('ticker'), { signal: controller.signal });
   void cancelled.catch(() => {});
-  await waitForWrite(join(root, 'ticks.txt'), '');
+  const firstWriteMs = await waitForWrite(join(root, 'ticks.txt'), '', cancelled);
   controller.abort();
   await assert.rejects(cancelled, { code: 'ABORTED' });
   const stopped = await readFile(join(root, 'ticks.txt'), 'utf8');
@@ -113,7 +113,8 @@ test('cancellation stops real host writes and other sandboxes remain usable', { 
   assert.equal(await readFile(join(root, 'ticks.txt'), 'utf8'), stopped);
   const pending = box.exec(command('ticker'));
   void pending.catch(() => {});
-  await waitForWrite(join(root, 'ticks.txt'), stopped);
+  const resumedWriteMs = await waitForWrite(join(root, 'ticks.txt'), stopped, pending);
+  t.diagnostic(JSON.stringify({ firstWriteMs, resumedWriteMs }));
   const closing = box.close();
   await assert.rejects(pending, { code: 'SANDBOX_CLOSED' });
   const closed = await readFile(join(root, 'ticks.txt'), 'utf8');
@@ -142,11 +143,19 @@ async function collect(stream) {
   return Buffer.concat(chunks).toString();
 }
 
-async function waitForWrite(path, previous) {
-  const deadline = Date.now() + 15_000;
+async function waitForWrite(path, previous, command) {
+  // Hosted runners need time to start the next WASM guest. This readiness
+  // allowance does not change command cancellation or cleanup deadlines.
+  const started = Date.now();
+  const deadline = started + 30_000;
+  let completed;
+  void command.then(result => { completed = { result }; }, error => { completed = { error }; });
   while (Date.now() < deadline) {
-    try { if (await readFile(path, 'utf8') !== previous) return; }
+    try { if (await readFile(path, 'utf8') !== previous) return Date.now() - started; }
     catch (error) { if (error.code !== 'ENOENT') throw error; }
+    if (completed) {
+      throw new Error(`guest command ended before writing: ${completed.error?.message ?? JSON.stringify(completed.result)}`, { cause: completed.error });
+    }
     await delay(20);
   }
   assert.fail('guest did not write before the readiness deadline');
