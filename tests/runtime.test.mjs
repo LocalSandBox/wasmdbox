@@ -22,6 +22,14 @@ test('public command, output, stdin and lifecycle contract', { timeout: 240_000 
     assert.deepEqual(JSON.parse(out.stdout), { argv: ['a b', '$(not-a-shell)'], cwd: '/workspace', env: 'override' });
     assert.equal((await box.exec(['bash', '-c', 'printf shell-ready'], { check: true })).stdout, 'shell-ready');
   });
+  await t.test('npm config exits cleanly and preserves the sandbox for reuse', async () => {
+    const out = await box.exec(['npm', 'config', 'get', 'cache'], {
+      env: { HOME: '/workspace', npm_config_cache: '/workspace/.npm' },
+      check: true, timeoutMs: 15_000,
+    });
+    assert.equal(out.stdout, '/workspace/.npm\n');
+    assert.equal((await box.exec(command('info'))).exitCode, 0);
+  });
   await t.test('guest errors return outputs; checked exits use independent CommandError', async () => {
     const out = await box.exec(command('nonzero'));
     assert.equal(out.exitCode, 7);

@@ -33,7 +33,9 @@ jobs:
       - name: Build and test
         run: |
           npm run build
-          node --test --test-concurrency=1 tests/*.test.mjs
+          node --no-experimental-wasm-jspi --test --test-concurrency=1 tests/*.test.mjs
+      - name: Test JSPI host traps and runtime lifecycle
+        run: node --experimental-wasm-jspi --test --test-concurrency=1 tests/host-traps.test.mjs tests/runtime.test.mjs
       - run: npm run typecheck
       - name: Run standalone examples
         run: npm run demo
@@ -93,7 +95,9 @@ jobs:
       - run: npm run build
       - run: npm run typecheck
       - name: Test runtime, host mounts, networking and release validation
-        run: node --test --test-concurrency=1 tests/*.test.mjs
+        run: node --no-experimental-wasm-jspi --test --test-concurrency=1 tests/*.test.mjs
+      - name: Test JSPI host traps and runtime lifecycle
+        run: node --experimental-wasm-jspi --test --test-concurrency=1 tests/host-traps.test.mjs tests/runtime.test.mjs
       - name: Run default standalone examples
         run: npm run demo
       - name: Run Python, installation and public HTTPS examples

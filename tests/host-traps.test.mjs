@@ -59,8 +59,19 @@ test('returned promises do not retain a synchronous trap frame', async () => {
   await assert.rejects(pending, error => error === original);
 });
 
+test('JSPI returns the original host trap through its Promise without an unhandled rejection', {
+  skip: typeof WebAssembly.promising !== 'function',
+}, async () => {
+  const original = { exitCode: 7 };
+  const pending = callWithHostTrap(WebAssembly.promising(guest(() => raiseHostTrap(original))), undefined, []);
+  assert.ok(pending instanceof Promise);
+  await assert.rejects(pending, error => error === original);
+  assert.equal(await callWithHostTrap(WebAssembly.promising(guest(() => {})), undefined, []), 0);
+});
+
 test('the actual SDK preserves proc_exit across a guest exception handler', { timeout: 30_000 }, async () => {
   const { stdout } = await promisify(execFile)(process.execPath, [
+    typeof WebAssembly.promising === 'function' ? '--experimental-wasm-jspi' : '--no-experimental-wasm-jspi',
     fileURLToPath(new URL('../scripts/ablation-probe.mjs', import.meta.url)),
     fileURLToPath(new URL('../dist/vendor/wasmer-sdk', import.meta.url)), 'host-traps',
   ], { cwd: fileURLToPath(new URL('../', import.meta.url)), timeout: 25_000 });

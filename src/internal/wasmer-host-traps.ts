@@ -25,7 +25,7 @@ export function raiseHostTrap(error: unknown): never {
   return trap();
 }
 
-/** A synchronous boundary; no state is retained across a returned Promise. */
+/** Track only the synchronous call; a returned Promise never keeps current set. */
 export function callWithHostTrap(fn: Function, receiver: unknown, args: unknown[]): unknown {
   const previous = current;
   const frame: TrapFrame = { raised: false };
@@ -34,7 +34,13 @@ export function callWithHostTrap(fn: Function, receiver: unknown, args: unknown[
     const result: unknown = Reflect.apply(fn, receiver, args);
     // A JS intermediary may catch engine errors; it still cannot turn a host
     // termination into success. Ordinary guest exceptions are left alone.
-    if (frame.raised) throw frame.error;
+    if (frame.raised) {
+      // JSPI turns even an immediate engine trap into a rejected Promise.
+      // Restore the Wasmer trap there: throwing now abandons that rejection
+      // and crashes the worker (for example on `npm config get cache`).
+      if (result instanceof Promise) return result.finally(() => { throw frame.error; });
+      throw frame.error;
+    }
     return result;
   } catch (error) {
     throw frame.raised ? frame.error : error;
