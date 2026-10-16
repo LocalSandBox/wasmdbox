@@ -93,7 +93,7 @@ jobs:
       - run: npm run build
       - run: npm run typecheck
       - name: Test runtime, host mounts, networking and release validation
-        run: node --test --test-concurrency=1 tests/*.test.mjs
+        run: node --test --test-reporter=tap --test-concurrency=1 tests/*.test.mjs
       - name: Run default standalone examples
         run: npm run demo
       - name: Run Python, installation and public HTTPS examples

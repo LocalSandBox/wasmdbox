@@ -1,0 +1,45 @@
+name: Windows network diagnostics
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  network:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - name: Repeat real WASM network tests with process exit diagnostics
+        run: |
+          mkdir -p .artifacts/windows-network
+          failed=0
+          for attempt in 1 2 3 4 5; do
+            status=0
+            node --test --test-reporter=tap tests/proxy-sdk.test.mjs > ".artifacts/windows-network/attempt-${attempt}.tap" 2>&1 || status=$?
+            cat ".artifacts/windows-network/attempt-${attempt}.tap"
+            echo "attempt=${attempt} runner_exit=${status}"
+            if [ "$status" -ne 0 ]; then failed=1; fi
+          done
+          exit "$failed"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: windows-network-diagnostics
+          path: .artifacts/windows-network/*.tap
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 14
